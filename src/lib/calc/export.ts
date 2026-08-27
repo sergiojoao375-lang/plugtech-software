@@ -6,6 +6,40 @@ import { computeCircuit, feederDeltaU, phaseImbalance, pickMainDevice, panelIccK
 const FOOTER = "SérgioTech • sergiojoa931@gmail.com • WhatsApp +244 931 728 474 • TECNOLOGIA QUE LIGA SOLUÇÕES";
 const TOP_MARGIN = 24; // espaço reservado ao cabeçalho em todas as páginas
 
+// ---- Identidade visual das tabelas (estilo do relatório web) ----
+const BRAND_GREEN: [number, number, number] = [13, 94, 66];
+const BRAND_STRIPE: [number, number, number] = [241, 247, 244];
+const BRAND_TEXT: [number, number, number] = [38, 48, 45];
+const BRAND_LINE: [number, number, number] = [223, 232, 228];
+const BRAND_BLUE: [number, number, number] = [21, 74, 122];
+
+/** Base comum a todas as tabelas: cabeçalho verde, linhas alternadas, sem grelha pesada. */
+function tableBase(fontSize = 7.5) {
+  return {
+    theme: "striped" as const,
+    styles: {
+      fontSize,
+      cellPadding: { top: 2, right: 2, bottom: 2, left: 2.4 },
+      overflow: "linebreak" as const,
+      textColor: BRAND_TEXT,
+      lineColor: BRAND_LINE,
+      lineWidth: 0.1,
+      valign: "middle" as const,
+    },
+    headStyles: {
+      fillColor: BRAND_GREEN,
+      textColor: [255, 255, 255] as [number, number, number],
+      fontStyle: "bold" as const,
+      fontSize: fontSize + 0.3,
+      cellPadding: { top: 2.6, right: 2, bottom: 2.6, left: 2.4 },
+      lineWidth: 0,
+    },
+    alternateRowStyles: { fillColor: BRAND_STRIPE },
+    bodyStyles: { lineWidth: { top: 0, right: 0, bottom: 0.1, left: 0 } as any },
+  };
+}
+
+
 function projectLine(p?: ProjectInfo): string | null {
   if (!p) return null;
   const parts: string[] = [];
@@ -156,11 +190,12 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   y += 22;
   const p = opts?.project;
   autoTable(doc, {
+    ...tableBase(10),
     startY: y,
     margin: { left: 40, right: 40 },
-    theme: "grid",
-    styles: { fontSize: 10, cellPadding: 2.5 },
-    columnStyles: { 0: { fontStyle: "bold", fillColor: [240, 245, 242], cellWidth: 60 } },
+    alternateRowStyles: { fillColor: [255, 255, 255] },
+    columnStyles: { 0: { fontStyle: "bold", fillColor: [237, 245, 241], textColor: BRAND_GREEN, cellWidth: 62 } },
+
     body: [
       ["Obra", p?.obra || "—"],
       ["Eng.º Responsável", p?.engenheiro || "—"],
@@ -223,11 +258,11 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
 
     const feederDesc = `${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? (panel.feederParallel + "× ") : ""}${panel.feederSection} mm² · L = ${panel.feederLength} m${panel.feederAuto ? " (secção automática)" : ""}`;
     autoTable(doc, {
+      ...tableBase(8),
       startY: y,
       margin: { left: 10, right: 10, top: TOP_MARGIN },
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 1.6 },
-      headStyles: { fillColor: [30, 100, 60], textColor: 255, fontSize: 8 },
+      alternateRowStyles: { fillColor: [255, 255, 255] },
+
       head: [["Origem", "Tipo de quadro", "Sistema", "Icc origem", "Icc barramento", "Linha de interligação", "ΔU interligação", "Circuitos"]],
       body: [[
         panel.origin,
@@ -257,13 +292,20 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       ];
     });
     autoTable(doc, {
+      ...tableBase(7),
       startY: y,
       head: [["#", "Circuito", "Tipo", "Fase", "P(W)", "Cos φ", "L(m)", "S(VA)", "Ib(A)", "Proteção", "Secção", "Iz(A)", "ΔU acum.", "Icc(kA)", "Instalação"]],
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", "", "", "", "", "", "", "", "", ""]],
-      styles: { fontSize: 7, cellPadding: 1.5, overflow: "linebreak" },
-      headStyles: { fillColor: [30, 100, 60], textColor: 255, fontSize: 7.5 },
-      alternateRowStyles: { fillColor: [245, 248, 250] },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 8, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold" },
+        8: { textColor: BRAND_BLUE },
+        9: { fontStyle: "bold" },
+        10: { fontStyle: "bold", textColor: BRAND_GREEN },
+        12: { textColor: BRAND_BLUE },
+      },
       margin: { left: 10, right: 10, top: TOP_MARGIN },
+
       tableWidth: "auto",
       rowPageBreak: "avoid",
       showHead: "everyPage",
@@ -318,14 +360,28 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       return [String(i + 1), c.name, `${r.in} A ${r.curve}`, `${t.mainRating} A`, ratio.toFixed(2), sel, `${r.ib.toFixed(1)} / ${r.in} / ${r.iz.toFixed(0)}`, coord, obs];
     });
     autoTable(doc, {
+      ...tableBase(7),
       startY: y,
       head: [["#", "Circuito", "Protecção jusante", "Geral montante", "Razão In(g)/In(c)", "Selectividade", "Ib / In / Iz (A)", "Coordenação", "Observação técnica"]],
       body: selRows.length ? selRows : [["—", "Sem circuitos", "", "", "", "", "", "", ""]],
-      styles: { fontSize: 7, cellPadding: 1.4, overflow: "linebreak" },
-      headStyles: { fillColor: [30, 100, 60], textColor: 255, fontSize: 7.5 },
-      alternateRowStyles: { fillColor: [245, 248, 250] },
-      columnStyles: { 8: { cellWidth: 70 } },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 8, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold" },
+        8: { cellWidth: 70 },
+      },
+      didParseCell: (d: any) => {
+        if (d.section !== "body") return;
+        const v = String(d.cell.raw ?? "");
+        if (d.column.index === 5 || d.column.index === 7) {
+          d.cell.styles.fontStyle = "bold";
+          d.cell.styles.textColor =
+            v === "Total" || v === "Conforme" ? [21, 115, 71]
+              : v === "Parcial" ? [176, 118, 12]
+                : [176, 42, 42];
+        }
+      },
       margin: { left: 10, right: 10, top: TOP_MARGIN },
+
       showHead: "everyPage",
       didDrawPage: () => header(doc, `Selectividade — ${panel.name}`, logo),
     });
@@ -346,11 +402,12 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
           ratio >= 2 ? "Discriminação assegurada em sobrecarga." : "Recomenda-se aparelho geral selectivo (curva S / temporizado)."];
       });
       autoTable(doc, {
+        ...tableBase(7.5),
         startY: y,
         head: [["Quadro parcial", "Geral do parcial", "Geral deste quadro", "Razão", "Selectividade", "Alimentação", "Observação"]],
         body: kRows,
-        styles: { fontSize: 7.5, cellPadding: 1.5, overflow: "linebreak" },
-        headStyles: { fillColor: [20, 60, 100], textColor: 255, fontSize: 7.5 },
+        headStyles: { ...tableBase(7.5).headStyles, fillColor: BRAND_BLUE },
+
         margin: { left: 10, right: 10, top: TOP_MARGIN },
         showHead: "everyPage",
         didDrawPage: () => header(doc, `Selectividade — ${panel.name}`, logo),
@@ -386,26 +443,27 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     matBreakers.set(gk, (matBreakers.get(gk) || 0) + 1);
   });
   autoTable(doc, {
+    ...tableBase(9),
     startY: y,
     head: [["Cabo", "Metros"]],
     body: Array.from(matCables.entries()).map(([k, v]) => [k, v.toFixed(1)]),
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [30, 100, 60], textColor: 255 },
+    columnStyles: { 1: { halign: "right", fontStyle: "bold" } },
     margin: { left: 10, right: 10, top: TOP_MARGIN },
     showHead: "everyPage",
     didDrawPage: () => header(doc, "6. Lista Global de Materiais", logo),
   });
   autoTable(doc, {
+    ...tableBase(9),
     // @ts-ignore
     startY: (doc as any).lastAutoTable.finalY + 6,
     head: [["Aparelho", "Quantidade"]],
     body: Array.from(matBreakers.entries()).map(([k, v]) => [k, String(v)]),
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [30, 100, 60], textColor: 255 },
+    columnStyles: { 1: { halign: "right", fontStyle: "bold" } },
     margin: { left: 10, right: 10, top: TOP_MARGIN },
     showHead: "everyPage",
     didDrawPage: () => header(doc, "6. Lista Global de Materiais", logo),
   });
+
 
   // ---------- 7. Assinaturas ----------
   doc.addPage("a4", "landscape");
@@ -620,13 +678,14 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
         `${c.power}W`, `${r.in}A ${r.curve}`, `${r.parallel > 1 ? r.parallel + "×" : ""}${r.section}mm²${c.material === "Al" ? " Al" : ""}`, `${c.length}m`];
     });
     autoTable(doc, {
+      ...tableBase(6.5),
       startY: y,
       margin: { left: leftX + boxW + 10, right: 10, top: TOP_MARGIN },
       head: [["#", "Circuito", "Fase", "P", "Proteção", "Secção", "L"]],
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", ""]],
-      styles: { fontSize: 6.5, cellPadding: 0.8, overflow: "linebreak" },
-      headStyles: { fillColor: [30, 100, 60], textColor: 255, fontSize: 6.8 },
-      theme: "grid",
+      styles: { ...tableBase(6.5).styles, cellPadding: 1 },
+      columnStyles: { 0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] }, 1: { fontStyle: "bold" } },
+
       showHead: "everyPage",
       didDrawPage: () => header(doc, "Diagrama Geral em Cascata (cont.)", opts?.logoDataUrl),
     });
