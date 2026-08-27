@@ -6,6 +6,40 @@ import { computeCircuit, feederDeltaU, phaseImbalance, pickMainDevice, panelIccK
 const FOOTER = "SérgioTech • sergiojoa931@gmail.com • WhatsApp +244 931 728 474 • TECNOLOGIA QUE LIGA SOLUÇÕES";
 const TOP_MARGIN = 24; // espaço reservado ao cabeçalho em todas as páginas
 
+// ---- Identidade visual das tabelas (estilo do relatório web) ----
+const BRAND_GREEN: [number, number, number] = [13, 94, 66];
+const BRAND_STRIPE: [number, number, number] = [241, 247, 244];
+const BRAND_TEXT: [number, number, number] = [38, 48, 45];
+const BRAND_LINE: [number, number, number] = [223, 232, 228];
+const BRAND_BLUE: [number, number, number] = [21, 74, 122];
+
+/** Base comum a todas as tabelas: cabeçalho verde, linhas alternadas, sem grelha pesada. */
+function tableBase(fontSize = 7.5) {
+  return {
+    theme: "striped" as const,
+    styles: {
+      fontSize,
+      cellPadding: { top: 2, right: 2, bottom: 2, left: 2.4 },
+      overflow: "linebreak" as const,
+      textColor: BRAND_TEXT,
+      lineColor: BRAND_LINE,
+      lineWidth: 0.1,
+      valign: "middle" as const,
+    },
+    headStyles: {
+      fillColor: BRAND_GREEN,
+      textColor: [255, 255, 255] as [number, number, number],
+      fontStyle: "bold" as const,
+      fontSize: fontSize + 0.3,
+      cellPadding: { top: 2.6, right: 2, bottom: 2.6, left: 2.4 },
+      lineWidth: 0,
+    },
+    alternateRowStyles: { fillColor: BRAND_STRIPE },
+    bodyStyles: { lineWidth: { top: 0, right: 0, bottom: 0.1, left: 0 } as any },
+  };
+}
+
+
 function projectLine(p?: ProjectInfo): string | null {
   if (!p) return null;
   const parts: string[] = [];
