@@ -360,14 +360,28 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       return [String(i + 1), c.name, `${r.in} A ${r.curve}`, `${t.mainRating} A`, ratio.toFixed(2), sel, `${r.ib.toFixed(1)} / ${r.in} / ${r.iz.toFixed(0)}`, coord, obs];
     });
     autoTable(doc, {
+      ...tableBase(7),
       startY: y,
       head: [["#", "Circuito", "Protecção jusante", "Geral montante", "Razão In(g)/In(c)", "Selectividade", "Ib / In / Iz (A)", "Coordenação", "Observação técnica"]],
       body: selRows.length ? selRows : [["—", "Sem circuitos", "", "", "", "", "", "", ""]],
-      styles: { fontSize: 7, cellPadding: 1.4, overflow: "linebreak" },
-      headStyles: { fillColor: [30, 100, 60], textColor: 255, fontSize: 7.5 },
-      alternateRowStyles: { fillColor: [245, 248, 250] },
-      columnStyles: { 8: { cellWidth: 70 } },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 8, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold" },
+        8: { cellWidth: 70 },
+      },
+      didParseCell: (d: any) => {
+        if (d.section !== "body") return;
+        const v = String(d.cell.raw ?? "");
+        if (d.column.index === 5 || d.column.index === 7) {
+          d.cell.styles.fontStyle = "bold";
+          d.cell.styles.textColor =
+            v === "Total" || v === "Conforme" ? [21, 115, 71]
+              : v === "Parcial" ? [176, 118, 12]
+                : [176, 42, 42];
+        }
+      },
       margin: { left: 10, right: 10, top: TOP_MARGIN },
+
       showHead: "everyPage",
       didDrawPage: () => header(doc, `Selectividade — ${panel.name}`, logo),
     });
