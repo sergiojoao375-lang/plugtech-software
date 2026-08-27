@@ -678,13 +678,14 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
         `${c.power}W`, `${r.in}A ${r.curve}`, `${r.parallel > 1 ? r.parallel + "×" : ""}${r.section}mm²${c.material === "Al" ? " Al" : ""}`, `${c.length}m`];
     });
     autoTable(doc, {
+      ...tableBase(6.5),
       startY: y,
       margin: { left: leftX + boxW + 10, right: 10, top: TOP_MARGIN },
       head: [["#", "Circuito", "Fase", "P", "Proteção", "Secção", "L"]],
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", ""]],
-      styles: { fontSize: 6.5, cellPadding: 0.8, overflow: "linebreak" },
-      headStyles: { fillColor: [30, 100, 60], textColor: 255, fontSize: 6.8 },
-      theme: "grid",
+      styles: { ...tableBase(6.5).styles, cellPadding: 1 },
+      columnStyles: { 0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] }, 1: { fontStyle: "bold" } },
+
       showHead: "everyPage",
       didDrawPage: () => header(doc, "Diagrama Geral em Cascata (cont.)", opts?.logoDataUrl),
     });
