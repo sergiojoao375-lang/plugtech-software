@@ -167,24 +167,52 @@ export default function CalcStudio() {
   }
 
   // --- Cálculos derivados ---
-  const ctx: FeederContext | null = useMemo(() => {
+  const feederAuto = panel?.feederAuto ?? true;
+
+  // Dimensionamento automático da linha de interligação (secção + paralelos)
+  const feederSizing = useMemo(() => {
     if (!panel) return null;
     const totalIb = panel.circuits.reduce((acc, c) => {
       const s = c.power / Math.max(0.1, c.cosphi || 1);
       return acc + (c.phase === "Tri" ? s / (Math.sqrt(3) * panel.voltageTri) : s / panel.voltageMono);
     }, 0);
-    const fdU = feederDeltaU({
+    if (!feederAuto) {
+      return { totalIb, section: panel.feederSection, parallel: Math.max(1, panel.feederParallel ?? 1) };
+    }
+    const minSection = panel.circuits.reduce((m, c) => {
+      const r = computeCircuit(c, {
+        iccOriginKA: panel.iccOriginKA, feederMaterial: panel.feederMaterial,
+        feederSection: panel.feederSection, feederLength: panel.feederLength,
+        feederDeltaU: 0, voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
+        isQGE: panel.panelKind === "QGE",
+      });
+      return Math.max(m, r.section);
+    }, 0);
+    const sized = sizeFeeder({
       totalCurrentA: totalIb, cosphi: panel.cosphi, length: panel.feederLength,
-      section: panel.feederSection, material: panel.feederMaterial, phase: panel.phase,
+      material: panel.feederMaterial, phase: panel.phase,
+      voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
+      minSection,
+    });
+    return { totalIb, section: sized.section, parallel: sized.parallel };
+  }, [panel, feederAuto]);
+
+  const ctx: FeederContext | null = useMemo(() => {
+    if (!panel || !feederSizing) return null;
+    const effSection = feederSizing.section * feederSizing.parallel;
+    const fdU = feederDeltaU({
+      totalCurrentA: feederSizing.totalIb, cosphi: panel.cosphi, length: panel.feederLength,
+      section: effSection, material: panel.feederMaterial, phase: panel.phase,
       voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
     });
     return {
       iccOriginKA: panel.iccOriginKA, feederMaterial: panel.feederMaterial,
-      feederSection: panel.feederSection, feederLength: panel.feederLength,
+      feederSection: effSection, feederLength: panel.feederLength,
       feederDeltaU: fdU, voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
       isQGE: panel.panelKind === "QGE",
-    };
-  }, [panel]);
+      supplyType: panel.supplyType,
+    } as FeederContext;
+  }, [panel, feederSizing]);
 
   const computed = useMemo(() => {
     if (!panel || !ctx) return [];
