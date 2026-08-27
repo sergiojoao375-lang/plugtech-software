@@ -190,11 +190,12 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   y += 22;
   const p = opts?.project;
   autoTable(doc, {
+    ...tableBase(10),
     startY: y,
     margin: { left: 40, right: 40 },
-    theme: "grid",
-    styles: { fontSize: 10, cellPadding: 2.5 },
-    columnStyles: { 0: { fontStyle: "bold", fillColor: [240, 245, 242], cellWidth: 60 } },
+    alternateRowStyles: { fillColor: [255, 255, 255] },
+    columnStyles: { 0: { fontStyle: "bold", fillColor: [237, 245, 241], textColor: BRAND_GREEN, cellWidth: 62 } },
+
     body: [
       ["Obra", p?.obra || "—"],
       ["Eng.º Responsável", p?.engenheiro || "—"],
