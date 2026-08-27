@@ -388,11 +388,12 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
           ratio >= 2 ? "Discriminação assegurada em sobrecarga." : "Recomenda-se aparelho geral selectivo (curva S / temporizado)."];
       });
       autoTable(doc, {
+        ...tableBase(7.5),
         startY: y,
         head: [["Quadro parcial", "Geral do parcial", "Geral deste quadro", "Razão", "Selectividade", "Alimentação", "Observação"]],
         body: kRows,
-        styles: { fontSize: 7.5, cellPadding: 1.5, overflow: "linebreak" },
-        headStyles: { fillColor: [20, 60, 100], textColor: 255, fontSize: 7.5 },
+        headStyles: { ...tableBase(7.5).headStyles, fillColor: BRAND_BLUE },
+
         margin: { left: 10, right: 10, top: TOP_MARGIN },
         showHead: "everyPage",
         didDrawPage: () => header(doc, `Selectividade — ${panel.name}`, logo),
