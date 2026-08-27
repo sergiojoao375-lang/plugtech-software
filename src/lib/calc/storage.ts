@@ -7,6 +7,8 @@ export interface Panel {
   feederMaterial: Material;
   feederSection: number;
   feederLength: number;
+  feederAuto?: boolean;      // dimensionamento automático da linha de interligação
+  feederParallel?: number;   // nº de condutores em paralelo por fase
   iccOriginKA: number;
   voltageMono: number;
   voltageTri: number;
