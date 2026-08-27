@@ -258,11 +258,11 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
 
     const feederDesc = `${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? (panel.feederParallel + "× ") : ""}${panel.feederSection} mm² · L = ${panel.feederLength} m${panel.feederAuto ? " (secção automática)" : ""}`;
     autoTable(doc, {
+      ...tableBase(8),
       startY: y,
       margin: { left: 10, right: 10, top: TOP_MARGIN },
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 1.6 },
-      headStyles: { fillColor: [30, 100, 60], textColor: 255, fontSize: 8 },
+      alternateRowStyles: { fillColor: [255, 255, 255] },
+
       head: [["Origem", "Tipo de quadro", "Sistema", "Icc origem", "Icc barramento", "Linha de interligação", "ΔU interligação", "Circuitos"]],
       body: [[
         panel.origin,
