@@ -443,26 +443,27 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     matBreakers.set(gk, (matBreakers.get(gk) || 0) + 1);
   });
   autoTable(doc, {
+    ...tableBase(9),
     startY: y,
     head: [["Cabo", "Metros"]],
     body: Array.from(matCables.entries()).map(([k, v]) => [k, v.toFixed(1)]),
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [30, 100, 60], textColor: 255 },
+    columnStyles: { 1: { halign: "right", fontStyle: "bold" } },
     margin: { left: 10, right: 10, top: TOP_MARGIN },
     showHead: "everyPage",
     didDrawPage: () => header(doc, "6. Lista Global de Materiais", logo),
   });
   autoTable(doc, {
+    ...tableBase(9),
     // @ts-ignore
     startY: (doc as any).lastAutoTable.finalY + 6,
     head: [["Aparelho", "Quantidade"]],
     body: Array.from(matBreakers.entries()).map(([k, v]) => [k, String(v)]),
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [30, 100, 60], textColor: 255 },
+    columnStyles: { 1: { halign: "right", fontStyle: "bold" } },
     margin: { left: 10, right: 10, top: TOP_MARGIN },
     showHead: "everyPage",
     didDrawPage: () => header(doc, "6. Lista Global de Materiais", logo),
   });
+
 
   // ---------- 7. Assinaturas ----------
   doc.addPage("a4", "landscape");
