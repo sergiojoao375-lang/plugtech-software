@@ -110,13 +110,44 @@ function ensureSpace(doc: jsPDF, y: number, needed: number, title: string, logo?
   return y;
 }
 
-function paragraph(doc: jsPDF, text: string, y: number, size = 8.5): number {
-  const w = doc.internal.pageSize.getWidth();
-  doc.setFontSize(size);
-  const lines = doc.splitTextToSize(text, w - 24) as string[];
-  doc.text(lines, 12, y);
-  return y + lines.length * (size * 0.42) + 2;
+const MARGIN = 12;
+
+function usableWidth(doc: jsPDF) {
+  return doc.internal.pageSize.getWidth() - MARGIN * 2;
 }
+
+function paragraph(doc: jsPDF, text: string, y: number, size = 8.5): number {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(size);
+  doc.setTextColor(35, 40, 38);
+  const lh = size * 0.52;
+  const lines = doc.splitTextToSize(text, usableWidth(doc)) as string[];
+  doc.text(lines, MARGIN, y, { align: "left", lineHeightFactor: 1.25 });
+  doc.setTextColor(0);
+  return y + lines.length * lh + 2.5;
+}
+
+/** Ponto com marcador e recuo correcto nas linhas seguintes. */
+function bullet(doc: jsPDF, text: string, y: number, size = 8.5): number {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(size);
+  doc.setTextColor(35, 40, 38);
+  const indent = 4.5;
+  const lh = size * 0.52;
+  const lines = doc.splitTextToSize(text, usableWidth(doc) - indent) as string[];
+  doc.text("•", MARGIN, y);
+  doc.text(lines, MARGIN + indent, y, { align: "left", lineHeightFactor: 1.25 });
+  doc.setTextColor(0);
+  return y + lines.length * lh + 2.5;
+}
+
+/** Altura estimada de um bloco de texto, para saber se cabe na página. */
+function textHeight(doc: jsPDF, text: string, size = 8.5, indent = 0): number {
+  doc.setFontSize(size);
+  const lines = doc.splitTextToSize(text, usableWidth(doc) - indent) as string[];
+  return lines.length * size * 0.52 + 3;
+}
+
 
 function panelContext(panel: Panel, feederDU: number): FeederContext {
   return {
