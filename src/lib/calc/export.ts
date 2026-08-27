@@ -292,13 +292,20 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       ];
     });
     autoTable(doc, {
+      ...tableBase(7),
       startY: y,
       head: [["#", "Circuito", "Tipo", "Fase", "P(W)", "Cos φ", "L(m)", "S(VA)", "Ib(A)", "Proteção", "Secção", "Iz(A)", "ΔU acum.", "Icc(kA)", "Instalação"]],
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", "", "", "", "", "", "", "", "", ""]],
-      styles: { fontSize: 7, cellPadding: 1.5, overflow: "linebreak" },
-      headStyles: { fillColor: [30, 100, 60], textColor: 255, fontSize: 7.5 },
-      alternateRowStyles: { fillColor: [245, 248, 250] },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 8, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold" },
+        8: { textColor: BRAND_BLUE },
+        9: { fontStyle: "bold" },
+        10: { fontStyle: "bold", textColor: BRAND_GREEN },
+        12: { textColor: BRAND_BLUE },
+      },
       margin: { left: 10, right: 10, top: TOP_MARGIN },
+
       tableWidth: "auto",
       rowPageBreak: "avoid",
       showHead: "everyPage",
