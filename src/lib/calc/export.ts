@@ -103,20 +103,51 @@ function sectionTitle(doc: jsPDF, text: string, y: number) {
 function ensureSpace(doc: jsPDF, y: number, needed: number, title: string, logo?: string): number {
   const h = doc.internal.pageSize.getHeight();
   if (y + needed > h - 14) {
-    doc.addPage("a4", "landscape");
+    doc.addPage("a4", "portrait");
     header(doc, title, logo);
     return TOP_MARGIN;
   }
   return y;
 }
 
-function paragraph(doc: jsPDF, text: string, y: number, size = 8.5): number {
-  const w = doc.internal.pageSize.getWidth();
-  doc.setFontSize(size);
-  const lines = doc.splitTextToSize(text, w - 24) as string[];
-  doc.text(lines, 12, y);
-  return y + lines.length * (size * 0.42) + 2;
+const MARGIN = 12;
+
+function usableWidth(doc: jsPDF) {
+  return doc.internal.pageSize.getWidth() - MARGIN * 2;
 }
+
+function paragraph(doc: jsPDF, text: string, y: number, size = 8.5): number {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(size);
+  doc.setTextColor(35, 40, 38);
+  const lh = size * 0.52;
+  const lines = doc.splitTextToSize(text, usableWidth(doc)) as string[];
+  doc.text(lines, MARGIN, y, { align: "left", lineHeightFactor: 1.25 });
+  doc.setTextColor(0);
+  return y + lines.length * lh + 2.5;
+}
+
+/** Ponto com marcador e recuo correcto nas linhas seguintes. */
+function bullet(doc: jsPDF, text: string, y: number, size = 8.5): number {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(size);
+  doc.setTextColor(35, 40, 38);
+  const indent = 4.5;
+  const lh = size * 0.52;
+  const lines = doc.splitTextToSize(text, usableWidth(doc) - indent) as string[];
+  doc.text("•", MARGIN, y);
+  doc.text(lines, MARGIN + indent, y, { align: "left", lineHeightFactor: 1.25 });
+  doc.setTextColor(0);
+  return y + lines.length * lh + 2.5;
+}
+
+/** Altura estimada de um bloco de texto, para saber se cabe na página. */
+function textHeight(doc: jsPDF, text: string, size = 8.5, indent = 0): number {
+  doc.setFontSize(size);
+  const lines = doc.splitTextToSize(text, usableWidth(doc) - indent) as string[];
+  return lines.length * size * 0.52 + 3;
+}
+
 
 function panelContext(panel: Panel, feederDU: number): FeederContext {
   return {
@@ -170,7 +201,7 @@ function childrenOf(panels: Panel[], panel: Panel): Panel[] {
 
 // ============================ RELATÓRIO PRINCIPAL ============================
 export async function exportPDF(panels: Panel[], activeId: string | null, opts?: { logoDataUrl?: string; project?: ProjectInfo }) {
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   if (!panels.length) return;
   const logo = opts?.logoDataUrl;
 
@@ -221,7 +252,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   idx.forEach((t, i) => doc.text(t, 14, y + i * 5.5));
 
   // ---------- 1. Critérios ----------
-  doc.addPage("a4", "landscape");
+  doc.addPage("a4", "portrait");
   header(doc, "1. Critérios de Cálculo", logo);
   y = TOP_MARGIN;
   y = sectionTitle(doc, "1. Informação do projecto e critérios de cálculo", y);
@@ -240,7 +271,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   criterios.forEach(t => { y = ensureSpace(doc, y, 12, "1. Critérios de Cálculo", logo); y = paragraph(doc, "•  " + t, y); });
 
   // ---------- 2. Diagrama de quadros ----------
-  doc.addPage("a4", "landscape");
+  doc.addPage("a4", "portrait");
   header(doc, "2. Diagrama de Quadros", logo);
   y = TOP_MARGIN;
   y = sectionTitle(doc, "2. Diagrama de quadros — hierarquia de alimentação", y);
@@ -251,7 +282,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   ordered.forEach((panel, pi) => {
     const t = panelTotals(panel);
 
-    doc.addPage("a4", "landscape");
+    doc.addPage("a4", "portrait");
     header(doc, `Quadro ${panel.name}`, logo);
     y = TOP_MARGIN;
     y = sectionTitle(doc, `3.${pi + 1}. Quadro ${panel.name} — dados de alimentação`, y);
@@ -329,7 +360,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     y += 22;
 
     // --------- Selectividade e coordenação deste quadro ---------
-    doc.addPage("a4", "landscape");
+    doc.addPage("a4", "portrait");
     header(doc, `Selectividade — ${panel.name}`, logo);
     y = TOP_MARGIN;
     y = sectionTitle(doc, `4.${pi + 1}. Selectividade e coordenação das protecções — Quadro ${panel.name}`, y);
@@ -415,13 +446,13 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     }
 
     // Diagrama de blocos do quadro
-    doc.addPage("a4", "landscape");
+    doc.addPage("a4", "portrait");
     header(doc, `Diagrama de blocos — ${panel.name}`, logo);
     drawBlockDiagram(doc, panel, kids);
   });
 
   // ---------- 6. Materiais globais ----------
-  doc.addPage("a4", "landscape");
+  doc.addPage("a4", "portrait");
   header(doc, "6. Lista Global de Materiais", logo);
   y = sectionTitle(doc, "6. Lista global de materiais (todos os quadros)", TOP_MARGIN);
   const matCables = new Map<string, number>();
@@ -466,7 +497,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
 
 
   // ---------- 7. Assinaturas ----------
-  doc.addPage("a4", "landscape");
+  doc.addPage("a4", "portrait");
   header(doc, "7. Validação Técnica", logo);
   doc.setFillColor(255, 255, 255);
   doc.rect(0, 20, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight() - 30, "F");
@@ -515,7 +546,7 @@ function drawPanelTree(doc: jsPDF, panels: Panel[], startY: number) {
 
   const drawNode = (panel: Panel, depth: number) => {
     if (y + boxH > h - 16) {
-      doc.addPage("a4", "landscape");
+      doc.addPage("a4", "portrait");
       header(doc, "2. Diagrama de Quadros (cont.)");
       y = TOP_MARGIN;
     }
@@ -618,7 +649,7 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
 
 // ===== Diagrama geral em cascata de TODOS os quadros =====
 export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: string; project?: ProjectInfo }) {
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   if (!panels.length) return;
 
   header(doc, "Diagrama Geral em Cascata", opts?.logoDataUrl);
@@ -647,7 +678,7 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
 
   ordered.forEach((panel, idx) => {
     if (y + boxH + gapY > h - 14) {
-      doc.addPage("a4", "landscape");
+      doc.addPage("a4", "portrait");
       header(doc, "Diagrama Geral em Cascata (cont.)", opts?.logoDataUrl);
       y = TOP_MARGIN;
     }
