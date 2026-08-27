@@ -297,7 +297,7 @@ const totals = useMemo(() => {
                   <span className="text-gray-400 font-medium">Origem da Alimentação</span>
                   <select 
                     value={(panel as any).supplyType ?? "Rede"} 
-                    onChange={e => updatePanel({ supplyType: e.target.value })}
+                    onChange={e => updatePanel({ supplyType: e.target.value as "PT" | "Rede" })}
                     className="mt-1 w-full rounded border border-border bg-[color:var(--surface-2)] px-2 py-1.5 text-sm"
                   >
                     <option value="Rede">Rede Pública</option>

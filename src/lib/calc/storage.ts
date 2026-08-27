@@ -15,7 +15,7 @@ export interface Panel {
   phase: Phase;            // alimentação do quadro
   cosphi: number;
   panelKind?: "QE" | "QGE"; // tipo de quadro (distribuição vs geral)
-  supplyType?: "PT" | "REDE"; // origem da alimentação
+  supplyType?: "PT" | "Rede"; // origem da alimentação
   circuits: Circuit[];
 }
 
