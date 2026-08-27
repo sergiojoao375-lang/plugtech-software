@@ -3,7 +3,7 @@ import { LogoST } from "./Logo";
 import {
   type Circuit, type Material, type Phase, type InstallScenario, type CircuitType,
   computeCircuit, feederDeltaU, phaseImbalance, balancePhases, pickMainDevice, panelIccKA,
-  FEEDER_SECTIONS, type FeederContext,
+  FEEDER_SECTIONS, sizeFeeder, type FeederContext,
 } from "@/lib/calc/engine";
 import { loadState, saveState, emptyProject, saveProjectFile, loadProjectFile, type AppState, type Panel, type ProjectInfo } from "@/lib/calc/storage";
 import { exportCSV, exportPDF, exportCascadePDF } from "@/lib/calc/export";
@@ -167,24 +167,52 @@ export default function CalcStudio() {
   }
 
   // --- Cálculos derivados ---
-  const ctx: FeederContext | null = useMemo(() => {
+  const feederAuto = panel?.feederAuto ?? true;
+
+  // Dimensionamento automático da linha de interligação (secção + paralelos)
+  const feederSizing = useMemo(() => {
     if (!panel) return null;
     const totalIb = panel.circuits.reduce((acc, c) => {
       const s = c.power / Math.max(0.1, c.cosphi || 1);
       return acc + (c.phase === "Tri" ? s / (Math.sqrt(3) * panel.voltageTri) : s / panel.voltageMono);
     }, 0);
-    const fdU = feederDeltaU({
+    if (!feederAuto) {
+      return { totalIb, section: panel.feederSection, parallel: Math.max(1, panel.feederParallel ?? 1) };
+    }
+    const minSection = panel.circuits.reduce((m, c) => {
+      const r = computeCircuit(c, {
+        iccOriginKA: panel.iccOriginKA, feederMaterial: panel.feederMaterial,
+        feederSection: panel.feederSection, feederLength: panel.feederLength,
+        feederDeltaU: 0, voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
+        isQGE: panel.panelKind === "QGE",
+      });
+      return Math.max(m, r.section);
+    }, 0);
+    const sized = sizeFeeder({
       totalCurrentA: totalIb, cosphi: panel.cosphi, length: panel.feederLength,
-      section: panel.feederSection, material: panel.feederMaterial, phase: panel.phase,
+      material: panel.feederMaterial, phase: panel.phase,
+      voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
+      minSection,
+    });
+    return { totalIb, section: sized.section, parallel: sized.parallel };
+  }, [panel, feederAuto]);
+
+  const ctx: FeederContext | null = useMemo(() => {
+    if (!panel || !feederSizing) return null;
+    const effSection = feederSizing.section * feederSizing.parallel;
+    const fdU = feederDeltaU({
+      totalCurrentA: feederSizing.totalIb, cosphi: panel.cosphi, length: panel.feederLength,
+      section: effSection, material: panel.feederMaterial, phase: panel.phase,
       voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
     });
     return {
       iccOriginKA: panel.iccOriginKA, feederMaterial: panel.feederMaterial,
-      feederSection: panel.feederSection, feederLength: panel.feederLength,
+      feederSection: effSection, feederLength: panel.feederLength,
       feederDeltaU: fdU, voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
       isQGE: panel.panelKind === "QGE",
-    };
-  }, [panel]);
+      supplyType: panel.supplyType,
+    } as FeederContext;
+  }, [panel, feederSizing]);
 
   const computed = useMemo(() => {
     if (!panel || !ctx) return [];
@@ -297,7 +325,7 @@ const totals = useMemo(() => {
                   <span className="text-gray-400 font-medium">Origem da Alimentação</span>
                   <select 
                     value={(panel as any).supplyType ?? "Rede"} 
-                    onChange={e => updatePanel({ supplyType: e.target.value })}
+                    onChange={e => updatePanel({ supplyType: e.target.value as "PT" | "Rede" })}
                     className="mt-1 w-full rounded border border-border bg-[color:var(--surface-2)] px-2 py-1.5 text-sm"
                   >
                     <option value="Rede">Rede Pública</option>
@@ -361,13 +389,27 @@ const totals = useMemo(() => {
                     className="rounded border border-border bg-[color:var(--surface-2)] px-2 py-1">
                     <option value="Cu">Cobre</option><option value="Al">Alumínio</option>
                   </select>
-                  <select value={panel.feederSection} onChange={e => updatePanel({ feederSection: +e.target.value })}
-                    className="rounded border border-border bg-[color:var(--surface-2)] px-2 py-1">
+                  <select value={feederAuto ? "" : panel.feederSection}
+                    disabled={feederAuto}
+                    onChange={e => updatePanel({ feederSection: +e.target.value })}
+                    className="rounded border border-border bg-[color:var(--surface-2)] px-2 py-1 disabled:opacity-60">
+                    {feederAuto && <option value="">Auto</option>}
                     {FEEDER_SECTIONS.map(s => <option key={s} value={s}>{s} mm²</option>)}
                   </select>
                   <input type="number" step="0.1" value={panel.feederLength} onChange={e => updatePanel({ feederLength: +e.target.value || 0 })}
                     className="col-span-2 rounded border border-border bg-[color:var(--surface-2)] px-2 py-1" placeholder="L (m)" />
                 </div>
+                <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <input type="checkbox" checked={feederAuto}
+                    onChange={e => updatePanel({ feederAuto: e.target.checked })} />
+                  Secção automática
+                </label>
+                {feederSizing && (
+                  <div className="rounded-md border border-border px-2 py-1 text-[10px] font-semibold">
+                    Cabo: {feederSizing.parallel > 1 ? `${feederSizing.parallel} × ` : ""}{feederSizing.section} mm²
+                    {feederSizing.parallel > 1 ? " (em paralelo por fase)" : ""}
+                  </div>
+                )}
                 {ctx && (
                   <div className={`rounded-md border px-2 py-1 text-[10px] font-semibold ${statusColors(feederStatus).chip}`}>
                     ΔU feeder: {ctx.feederDeltaU.toFixed(2)}%

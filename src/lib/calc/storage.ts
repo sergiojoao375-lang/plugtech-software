@@ -7,12 +7,15 @@ export interface Panel {
   feederMaterial: Material;
   feederSection: number;
   feederLength: number;
+  feederAuto?: boolean;      // dimensionamento automático da linha de interligação
+  feederParallel?: number;   // nº de condutores em paralelo por fase
   iccOriginKA: number;
   voltageMono: number;
   voltageTri: number;
   phase: Phase;            // alimentação do quadro
   cosphi: number;
   panelKind?: "QE" | "QGE"; // tipo de quadro (distribuição vs geral)
+  supplyType?: "PT" | "Rede"; // origem da alimentação
   circuits: Circuit[];
 }
 
