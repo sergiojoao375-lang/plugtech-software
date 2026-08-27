@@ -291,58 +291,102 @@ export function feederDeltaU(params: {
 //--minha--  }
 //--minha--  return updated;
 
+// Equilíbrio de fases — heurística LPT (Longest Processing Time) + refinamento local.
+// Complexidade ~O(n log n), suporta centenas de circuitos sem travar o software.
 export function balancePhases(circuits: Circuit[]): Circuit[] {
+  const phases: Array<"L1" | "L2" | "L3"> = ["L1", "L2", "L3"];
   const monos = circuits.filter(c => c.phase === "Mono");
   const tris = circuits.filter(c => c.phase === "Tri");
-  
+  if (monos.length === 0) return circuits;
+
   // Parcela fixa que os circuitos trifásicos aplicam em cada fase (P / 3)
   const triPerPhase = tris.reduce((a, c) => a + (c.power / 3), 0);
-  
-  let bestDistribution: Array<"L1" | "L2" | "L3"> = [];
-  let bestImbalance = Infinity;
-  
-  const phases: Array<"L1" | "L2" | "L3"> = ["L1", "L2", "L3"];
-  
-  // Função recursiva para testar todas as combinações matemáticas possíveis de fases
-  function evaluate(index: number, currentAssign: Array<"L1" | "L2" | "L3">) {
-    if (index === monos.length) {
-      const sums = { L1: triPerPhase, L2: triPerPhase, L3: triPerPhase };
-      currentAssign.forEach((phase, i) => {
-        sums[phase] += monos[i].power;
-      });
-      
-      const avg = (sums.L1 + sums.L2 + sums.L3) / 3 || 1;
-      const max = Math.max(sums.L1, sums.L2, sums.L3);
-      const min = Math.min(sums.L1, sums.L2, sums.L3);
-      const pct = ((max - min) / avg) * 100;
-      
-      if (pct < bestImbalance) {
-        bestImbalance = pct;
-        bestDistribution = [...currentAssign];
-      }
-      return;
-    }
-    
-    // Testa o circuito atual nas 3 fases para encontrar o melhor arranjo
-    for (const p of phases) {
-      currentAssign.push(p);
-      evaluate(index + 1, currentAssign);
-      currentAssign.pop();
-    }
+  const sums: Record<"L1" | "L2" | "L3", number> = {
+    L1: triPerPhase, L2: triPerPhase, L3: triPerPhase,
+  };
+
+  // 1) Ordena por potência decrescente e coloca cada carga na fase menos carregada
+  const order = monos
+    .map((c, i) => ({ i, power: c.power }))
+    .sort((a, b) => b.power - a.power);
+  const assign: Array<"L1" | "L2" | "L3"> = new Array(monos.length).fill("L1");
+
+  for (const { i, power } of order) {
+    const p = phases.reduce((a, b) => (sums[a] <= sums[b] ? a : b));
+    assign[i] = p;
+    sums[p] += power;
   }
-  
-  // Inicia a busca combinatória se houver circuitos monofásicos
-  if (monos.length > 0) {
-    evaluate(0, []);
+
+  // 2) Refinamento local: tenta mover cargas da fase mais carregada para a menos carregada
+  for (let iter = 0; iter < 200; iter++) {
+    const maxP = phases.reduce((a, b) => (sums[a] >= sums[b] ? a : b));
+    const minP = phases.reduce((a, b) => (sums[a] <= sums[b] ? a : b));
+    const gap = sums[maxP] - sums[minP];
+    if (gap <= 0.0001) break;
+
+    let bestIdx = -1;
+    let bestGap = gap;
+    for (let i = 0; i < monos.length; i++) {
+      if (assign[i] !== maxP) continue;
+      const w = monos[i].power;
+      const newGap = Math.abs((sums[maxP] - w) - (sums[minP] + w));
+      if (newGap < bestGap) { bestGap = newGap; bestIdx = i; }
+    }
+    if (bestIdx < 0) break;
+    const w = monos[bestIdx].power;
+    sums[maxP] -= w; sums[minP] += w;
+    assign[bestIdx] = minP;
   }
-  
-  // Reconstrói a lista de circuitos aplicando a melhor combinação encontrada
+
+  const byId = new Map<string, "L1" | "L2" | "L3">();
+  monos.forEach((c, i) => byId.set(c.id, assign[i]));
+
   return circuits.map(c => {
     if (c.phase === "Tri") return c;
-    const monoIndex = monos.findIndex(m => m.id === c.id);
-    const assignedPhase = bestDistribution[monoIndex] || "L1";
-    return { ...c, phaseAssign: assignedPhase };
+    return { ...c, phaseAssign: byId.get(c.id) ?? "L1" };
   });
+}
+
+// Dimensionamento automático da linha de interligação (feeder), com paralelos
+export function sizeFeeder(params: {
+  totalCurrentA: number;
+  cosphi: number;
+  length: number;
+  material: Material;
+  phase: Phase;
+  scenario?: InstallScenario;
+  voltageMono: number;
+  voltageTri: number;
+  maxDeltaU?: number;   // % admissível na linha de interligação
+  maxParallel?: number;
+  minSection?: number;  // secção mínima (ex.: maior secção dos circuitos a jusante)
+}): { section: number; parallel: number; iz: number; deltaU: number } {
+  const scenario = params.scenario ?? "Calha";
+  const maxDU = params.maxDeltaU ?? 1.5;
+  const maxPar = Math.max(1, params.maxParallel ?? 4);
+  const minSec = params.minSection ?? 0;
+  const need = params.totalCurrentA * 1.25; // margem de coordenação com o aparelho geral
+
+  let fallback = { section: FEEDER_SECTIONS[FEEDER_SECTIONS.length - 1], parallel: maxPar, iz: 0, deltaU: 0 };
+
+  for (let p = 1; p <= maxPar; p++) {
+    for (const sec of FEEDER_SECTIONS) {
+      if (sec < minSec) continue;
+      const iz = izFor(sec, scenario, params.material) * p;
+      const dU = feederDeltaU({
+        totalCurrentA: params.totalCurrentA, cosphi: params.cosphi, length: params.length,
+        section: sec * p, material: params.material, phase: params.phase,
+        voltageMono: params.voltageMono, voltageTri: params.voltageTri,
+      });
+      if (p === maxPar && sec === FEEDER_SECTIONS[FEEDER_SECTIONS.length - 1]) {
+        fallback = { section: sec, parallel: p, iz, deltaU: dU };
+      }
+      if (iz >= need && dU <= maxDU) {
+        return { section: sec, parallel: p, iz, deltaU: dU };
+      }
+    }
+  }
+  return fallback;
 }
 
 //}
