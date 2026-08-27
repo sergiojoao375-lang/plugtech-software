@@ -3,7 +3,7 @@ import { LogoST } from "./Logo";
 import {
   type Circuit, type Material, type Phase, type InstallScenario, type CircuitType,
   computeCircuit, feederDeltaU, phaseImbalance, balancePhases, pickMainDevice, panelIccKA,
-  FEEDER_SECTIONS, type FeederContext,
+  FEEDER_SECTIONS, sizeFeeder, type FeederContext,
 } from "@/lib/calc/engine";
 import { loadState, saveState, emptyProject, saveProjectFile, loadProjectFile, type AppState, type Panel, type ProjectInfo } from "@/lib/calc/storage";
 import { exportCSV, exportPDF, exportCascadePDF } from "@/lib/calc/export";
@@ -389,13 +389,27 @@ const totals = useMemo(() => {
                     className="rounded border border-border bg-[color:var(--surface-2)] px-2 py-1">
                     <option value="Cu">Cobre</option><option value="Al">Alumínio</option>
                   </select>
-                  <select value={panel.feederSection} onChange={e => updatePanel({ feederSection: +e.target.value })}
-                    className="rounded border border-border bg-[color:var(--surface-2)] px-2 py-1">
+                  <select value={feederAuto ? "" : panel.feederSection}
+                    disabled={feederAuto}
+                    onChange={e => updatePanel({ feederSection: +e.target.value })}
+                    className="rounded border border-border bg-[color:var(--surface-2)] px-2 py-1 disabled:opacity-60">
+                    {feederAuto && <option value="">Auto</option>}
                     {FEEDER_SECTIONS.map(s => <option key={s} value={s}>{s} mm²</option>)}
                   </select>
                   <input type="number" step="0.1" value={panel.feederLength} onChange={e => updatePanel({ feederLength: +e.target.value || 0 })}
                     className="col-span-2 rounded border border-border bg-[color:var(--surface-2)] px-2 py-1" placeholder="L (m)" />
                 </div>
+                <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <input type="checkbox" checked={feederAuto}
+                    onChange={e => updatePanel({ feederAuto: e.target.checked })} />
+                  Secção automática
+                </label>
+                {feederSizing && (
+                  <div className="rounded-md border border-border px-2 py-1 text-[10px] font-semibold">
+                    Cabo: {feederSizing.parallel > 1 ? `${feederSizing.parallel} × ` : ""}{feederSizing.section} mm²
+                    {feederSizing.parallel > 1 ? " (em paralelo por fase)" : ""}
+                  </div>
+                )}
                 {ctx && (
                   <div className={`rounded-md border px-2 py-1 text-[10px] font-semibold ${statusColors(feederStatus).chip}`}>
                     ΔU feeder: {ctx.feederDeltaU.toFixed(2)}%
