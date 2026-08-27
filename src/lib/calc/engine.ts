@@ -131,6 +131,7 @@ export interface FeederContext {
   voltageMono: number;     // 230
   voltageTri: number;      // 400
   isQGE?: boolean;         // quadro geral: calibres e secções alargados
+  supplyType?: "PT" | "Rede"; // origem da alimentação (limites de ΔU)
 }
 
 export function computeCircuit(c: Circuit, ctx: FeederContext): CalcResult {
