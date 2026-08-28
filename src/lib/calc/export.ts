@@ -576,35 +576,39 @@ function orderPanels(panels: Panel[], activeId: string | null): Panel[] {
 // Diagrama em árvore dos quadros (quem alimenta quem)
 function drawPanelTree(doc: jsPDF, panels: Panel[], startY: number) {
   const roots = panels.filter(p => !panels.some(q => q.name === p.origin && q.id !== p.id));
-  const boxW = 78, boxH = 22, gapX = 22, gapY = 10;
+  const boxH = 22, gapY = 8, indent = 12;
+  const full = usableWidth(doc);
   let y = startY + 2;
   const h = doc.internal.pageSize.getHeight();
 
   const drawNode = (panel: Panel, depth: number) => {
-    if (y + boxH > h - 16) {
+    if (y + boxH > h - 18) {
       doc.addPage("a4", "portrait");
       header(doc, "2. Diagrama de Quadros (cont.)");
       y = TOP_MARGIN;
     }
-    const x = 14 + depth * (boxW + gapX);
+    const d = Math.min(depth, 5);
+    const x = MARGIN + d * indent;
+    const boxW = full - d * indent;
     const t = panelTotals(panel);
     doc.setDrawColor(20, 80, 60);
     doc.setLineWidth(0.4);
-    doc.setFillColor(depth === 0 ? 225 : 240, depth === 0 ? 245 : 246, depth === 0 ? 232 : 252);
+    doc.setFillColor(d === 0 ? 225 : 240, d === 0 ? 245 : 246, d === 0 ? 232 : 252);
     doc.rect(x, y, boxW, boxH, "FD");
     doc.setTextColor(15);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(panel.name, x + 3, y + 6);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.6);
+    doc.setFontSize(6.8);
     doc.text(`Origem: ${panel.origin}`, x + 3, y + 11);
     doc.text(`Geral: ${t.mainRating} A · ${panel.phase} · ${panel.circuits.length} circ.`, x + 3, y + 15);
-    doc.text(`Alim.: ${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? panel.feederParallel + "× " : ""}${panel.feederSection}mm² · ${panel.feederLength}m`, x + 3, y + 19);
+    doc.text(`Alim.: ${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? panel.feederParallel + "× " : ""}${panel.feederSection} mm² · ${panel.feederLength} m`, x + 3, y + 19);
 
-    if (depth > 0) {
+    if (d > 0) {
       doc.setDrawColor(120);
-      doc.line(x - gapX, y + boxH / 2, x, y + boxH / 2);
+      doc.line(x - indent / 2, y - gapY, x - indent / 2, y + boxH / 2);
+      doc.line(x - indent / 2, y + boxH / 2, x, y + boxH / 2);
     }
     y += boxH + gapY;
     panels.filter(k => k.origin === panel.name && k.id !== panel.id).forEach(k => drawNode(k, depth + 1));
@@ -613,12 +617,10 @@ function drawPanelTree(doc: jsPDF, panels: Panel[], startY: number) {
   (roots.length ? roots : panels).forEach(r => drawNode(r, 0));
 
   if (!panels.some(p => panels.some(q => q.name === p.origin && q.id !== p.id))) {
-    doc.setFontSize(8.5);
-    doc.setTextColor(80);
-    doc.text("Nota: não existem quadros parciais alimentados a partir de outros quadros neste projecto.", 14, y + 4);
-    doc.setTextColor(0);
+    paragraph(doc, "Nota: não existem quadros parciais alimentados a partir de outros quadros neste projecto.", y + 4);
   }
 }
+
 
 function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
   const w = doc.internal.pageSize.getWidth();
