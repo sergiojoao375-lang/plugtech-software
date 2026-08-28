@@ -79,26 +79,36 @@ function header(doc: jsPDF, title: string, logo?: string) {
   doc.setFont("helvetica", "normal");
   doc.text("SérgioTech", 26, 14);
   doc.setTextColor(255);
-  doc.setFontSize(11);
-  doc.text(title, w - 10, 11, { align: "right" });
+  doc.setFontSize(8.5);
+  const maxTitleW = w - 26 - 10 - 4;
+  const titleLine = (doc.splitTextToSize(title, maxTitleW) as string[])[0];
+  doc.text(titleLine, w - 10, 11, { align: "right" });
   doc.setTextColor(0);
   doc.setFillColor(30, 100, 60);
+
   doc.rect(0, 18, w, 1.2, "F");
   doc.setTextColor(0);
 }
 
 function sectionTitle(doc: jsPDF, text: string, y: number) {
   const w = doc.internal.pageSize.getWidth();
-  doc.setFillColor(235, 242, 238);
-  doc.rect(10, y - 5, w - 20, 7.5, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
+  let size = 9.5;
+  doc.setFontSize(size);
+  while (size > 7 && doc.getTextWidth(text) > w - 28) {
+    size -= 0.5;
+    doc.setFontSize(size);
+  }
+  doc.setFillColor(235, 242, 238);
+  doc.rect(MARGIN - 2, y - 5, w - (MARGIN - 2) * 2, 7.5, "F");
   doc.setTextColor(20, 60, 45);
-  doc.text(text, 12, y);
+  doc.text(text, MARGIN, y);
   doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
   doc.setTextColor(0);
-  return y + 8;
+  return y + 9;
 }
+
 
 function ensureSpace(doc: jsPDF, y: number, needed: number, title: string, logo?: string): number {
   const h = doc.internal.pageSize.getHeight();
@@ -208,22 +218,24 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   // ---------- Capa ----------
   const w = doc.internal.pageSize.getWidth();
   header(doc, "Memória de Cálculo Eléctrico", logo);
-  let y = 36;
+  let y = 40;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
+  doc.setFontSize(15);
   doc.setTextColor(20, 60, 45);
-  doc.text("MEMÓRIA DE CÁLCULO E DIMENSIONAMENTO", w / 2, y, { align: "center" });
-  doc.setFontSize(12);
+  doc.text(doc.splitTextToSize("MEMÓRIA DE CÁLCULO E DIMENSIONAMENTO", usableWidth(doc)), w / 2, y, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
   doc.setTextColor(60);
-  doc.text("Instalações Eléctricas de Baixa Tensão — RTIEBT (metodologia simplificada)", w / 2, y + 8, { align: "center" });
+  doc.text(doc.splitTextToSize("Instalações Eléctricas de Baixa Tensão — RTIEBT (metodologia simplificada)", usableWidth(doc)), w / 2, y + 8, { align: "center" });
   doc.setTextColor(0);
+
 
   y += 22;
   const p = opts?.project;
   autoTable(doc, {
     ...tableBase(10),
     startY: y,
-    margin: { left: 40, right: 40 },
+    margin: { left: 22, right: 22 },
     alternateRowStyles: { fillColor: [255, 255, 255] },
     columnStyles: { 0: { fontStyle: "bold", fillColor: [237, 245, 241], textColor: BRAND_GREEN, cellWidth: 62 } },
 
@@ -268,7 +280,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     "Aparelho de corte geral dimensionado para 1,25 · Ib da fase mais carregada, com margem adicional de 10% na escolha do calibre normalizado.",
     "Equilíbrio de fases optimizado por algoritmo de repartição de cargas monofásicas pelas três fases.",
   ];
-  criterios.forEach(t => { y = ensureSpace(doc, y, 12, "1. Critérios de Cálculo", logo); y = paragraph(doc, "•  " + t, y); });
+  criterios.forEach(t => { y = ensureSpace(doc, y, textHeight(doc, t, 8.5, 4.5), "1. Critérios de Cálculo", logo); y = bullet(doc, t, y); });
 
   // ---------- 2. Diagrama de quadros ----------
   doc.addPage("a4", "portrait");
@@ -289,10 +301,12 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
 
     const feederDesc = `${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? (panel.feederParallel + "× ") : ""}${panel.feederSection} mm² · L = ${panel.feederLength} m${panel.feederAuto ? " (secção automática)" : ""}`;
     autoTable(doc, {
-      ...tableBase(8),
+      ...tableBase(6.6),
       startY: y,
-      margin: { left: 10, right: 10, top: TOP_MARGIN },
+      margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
+      tableWidth: usableWidth(doc),
       alternateRowStyles: { fillColor: [255, 255, 255] },
+
 
       head: [["Origem", "Tipo de quadro", "Sistema", "Icc origem", "Icc barramento", "Linha de interligação", "ΔU interligação", "Circuitos"]],
       body: [[
@@ -323,25 +337,35 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       ];
     });
     autoTable(doc, {
-      ...tableBase(7),
+      ...tableBase(5.9),
       startY: y,
-      head: [["#", "Circuito", "Tipo", "Fase", "P(W)", "Cos φ", "L(m)", "S(VA)", "Ib(A)", "Proteção", "Secção", "Iz(A)", "ΔU acum.", "Icc(kA)", "Instalação"]],
+      head: [["#", "Circuito", "Tipo", "Fase", "P (W)", "Cos φ", "L (m)", "S (VA)", "Ib (A)", "Protecção", "Secção", "Iz (A)", "ΔU %", "Icc kA", "Instalação"]],
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", "", "", "", "", "", "", "", "", ""]],
       columnStyles: {
-        0: { halign: "center", cellWidth: 8, textColor: [120, 130, 128] },
-        1: { fontStyle: "bold" },
-        8: { textColor: BRAND_BLUE },
-        9: { fontStyle: "bold" },
-        10: { fontStyle: "bold", textColor: BRAND_GREEN },
-        12: { textColor: BRAND_BLUE },
+        0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold", cellWidth: 26 },
+        2: { cellWidth: 12 },
+        3: { cellWidth: 12, halign: "center" },
+        4: { cellWidth: 12, halign: "right" },
+        5: { cellWidth: 10, halign: "right" },
+        6: { cellWidth: 10, halign: "right" },
+        7: { cellWidth: 12, halign: "right" },
+        8: { cellWidth: 11, halign: "right", textColor: BRAND_BLUE },
+        9: { cellWidth: 15, fontStyle: "bold" },
+        10: { cellWidth: 15, fontStyle: "bold", textColor: BRAND_GREEN },
+        11: { cellWidth: 10, halign: "right" },
+        12: { cellWidth: 13, halign: "right", textColor: BRAND_BLUE },
+        13: { cellWidth: 11, halign: "right" },
+        14: { cellWidth: 14 },
       },
-      margin: { left: 10, right: 10, top: TOP_MARGIN },
+      margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
 
-      tableWidth: "auto",
+      tableWidth: usableWidth(doc),
       rowPageBreak: "avoid",
       showHead: "everyPage",
-      didDrawPage: (d) => { if (d.pageNumber > 1 || true) header(doc, `Quadro ${panel.name} — circuitos`, logo); },
+      didDrawPage: () => header(doc, `Quadro ${panel.name} — circuitos`, logo),
     });
+
     // @ts-ignore
     y = (doc as any).lastAutoTable.finalY + 6;
 
@@ -350,14 +374,14 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     const modules = panel.circuits.reduce((a, c) => a + (c.phase === "Tri" ? 3 : 2), 4);
     const modulesTotal = Math.ceil(modules * 1.2);
     const imb = phaseImbalance(panel.circuits);
-    y = ensureSpace(doc, y, 34, `Quadro ${panel.name} — resumo`, logo);
+    y = ensureSpace(doc, y, 40, `Quadro ${panel.name} — resumo`, logo);
     y = sectionTitle(doc, "Resumo do quadro", y);
-    doc.setFontSize(9);
-    doc.text(`Potência instalada: ${t.totalP.toFixed(0)} W  |  Ib (fase mais carregada): ${t.ibTot.toFixed(1)} A  |  I de dimensionamento (1,25 · Ib): ${t.cutNeed.toFixed(1)} A`, 12, y);
-    doc.text(`Corte geral: ${cutType} — calibre ${t.mainRating} A`, 12, y + 5);
-    doc.text(`Módulos DIN estimados (reserva 20%): ${modulesTotal}`, 12, y + 10);
-    doc.text(`Desequilíbrio de fases: L1 = ${imb.L1.toFixed(0)} W · L2 = ${imb.L2.toFixed(0)} W · L3 = ${imb.L3.toFixed(0)} W  (${imb.pct.toFixed(1)} %)`, 12, y + 15);
-    y += 22;
+    y = paragraph(doc, `Potência instalada: ${t.totalP.toFixed(0)} W  |  Ib (fase mais carregada): ${t.ibTot.toFixed(1)} A  |  I de dimensionamento (1,25 · Ib): ${t.cutNeed.toFixed(1)} A`, y, 8.5);
+    y = paragraph(doc, `Corte geral: ${cutType} — calibre ${t.mainRating} A`, y, 8.5);
+    y = paragraph(doc, `Módulos DIN estimados (reserva 20%): ${modulesTotal}`, y, 8.5);
+    y = paragraph(doc, `Desequilíbrio de fases: L1 = ${imb.L1.toFixed(0)} W · L2 = ${imb.L2.toFixed(0)} W · L3 = ${imb.L3.toFixed(0)} W  (${imb.pct.toFixed(1)} %)`, y, 8.5);
+    y += 4;
+
 
     // --------- Selectividade e coordenação deste quadro ---------
     doc.addPage("a4", "portrait");
@@ -372,7 +396,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       "Selectividade cronométrica (tempo): obtida com aparelho geral selectivo/regulável, com temporização de curta duração (curva S ou retardo intencional de 50–100 ms), permitindo ao disjuntor terminal actuar primeiro em curto-circuito.",
       "Selectividade energética (limitação): o disjuntor terminal limita a energia específica passante (I²t) a um valor inferior ao necessário para o disparo magnético do aparelho de montante — indicada pelos fabricantes em tabelas de discriminação.",
       "Selectividade diferencial: o diferencial de montante deve ser do tipo S (selectivo, retardado) com sensibilidade pelo menos o triplo da do diferencial a jusante (ex.: 300 mA tipo S a montante de 30 mA instantâneos).",
-    ].forEach(t2 => { y = ensureSpace(doc, y, 14, `Selectividade — ${panel.name}`, logo); y = paragraph(doc, "•  " + t2, y); });
+    ].forEach(t2 => { y = ensureSpace(doc, y, textHeight(doc, t2, 8.5, 4.5), `Selectividade — ${panel.name}`, logo); y = bullet(doc, t2, y); });
     y += 1;
     y = ensureSpace(doc, y, 20, `Selectividade — ${panel.name}`, logo);
     y = paragraph(doc, `Coordenação neste quadro: o aparelho geral tem calibre ${t.mainRating} A e o barramento apresenta uma corrente de curto-circuito presumida de ${panelIccKA({ ...panel, feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1) }).toFixed(1)} kA, pelo que todos os aparelhos instalados devem ter poder de corte (Icu/Icn) igual ou superior a esse valor, ou ser objecto de protecção de retaguarda (back-up) pelo aparelho geral. Verifica-se ainda, para cada circuito, a condição Ib ≤ In ≤ Iz.`, y);
@@ -391,15 +415,23 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       return [String(i + 1), c.name, `${r.in} A ${r.curve}`, `${t.mainRating} A`, ratio.toFixed(2), sel, `${r.ib.toFixed(1)} / ${r.in} / ${r.iz.toFixed(0)}`, coord, obs];
     });
     autoTable(doc, {
-      ...tableBase(7),
+      ...tableBase(6.4),
       startY: y,
-      head: [["#", "Circuito", "Protecção jusante", "Geral montante", "Razão In(g)/In(c)", "Selectividade", "Ib / In / Iz (A)", "Coordenação", "Observação técnica"]],
+      head: [["#", "Circuito", "Prot. jusante", "Geral montante", "Razão", "Selectividade", "Ib / In / Iz (A)", "Coordenação", "Observação técnica"]],
       body: selRows.length ? selRows : [["—", "Sem circuitos", "", "", "", "", "", "", ""]],
+      tableWidth: usableWidth(doc),
       columnStyles: {
-        0: { halign: "center", cellWidth: 8, textColor: [120, 130, 128] },
-        1: { fontStyle: "bold" },
-        8: { cellWidth: 70 },
+        0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold", cellWidth: 26 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 18, halign: "center" },
+        4: { cellWidth: 13, halign: "right" },
+        5: { cellWidth: 20 },
+        6: { cellWidth: 22, halign: "center" },
+        7: { cellWidth: 18 },
+        8: { cellWidth: 42 },
       },
+
       didParseCell: (d: any) => {
         if (d.section !== "body") return;
         const v = String(d.cell.raw ?? "");
@@ -411,7 +443,8 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
                 : [176, 42, 42];
         }
       },
-      margin: { left: 10, right: 10, top: TOP_MARGIN },
+      margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
+
 
       showHead: "everyPage",
       didDrawPage: () => header(doc, `Selectividade — ${panel.name}`, logo),
@@ -433,13 +466,24 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
           ratio >= 2 ? "Discriminação assegurada em sobrecarga." : "Recomenda-se aparelho geral selectivo (curva S / temporizado)."];
       });
       autoTable(doc, {
-        ...tableBase(7.5),
+        ...tableBase(6.6),
         startY: y,
-        head: [["Quadro parcial", "Geral do parcial", "Geral deste quadro", "Razão", "Selectividade", "Alimentação", "Observação"]],
+        head: [["Quadro parcial", "Geral parcial", "Geral deste quadro", "Razão", "Selectividade", "Alimentação", "Observação"]],
         body: kRows,
-        headStyles: { ...tableBase(7.5).headStyles, fillColor: BRAND_BLUE },
+        headStyles: { ...tableBase(6.6).headStyles, fillColor: BRAND_BLUE },
+        tableWidth: usableWidth(doc),
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 26 },
+          1: { cellWidth: 20, halign: "center" },
+          2: { cellWidth: 22, halign: "center" },
+          3: { cellWidth: 12, halign: "right" },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 40 },
+          6: { cellWidth: 44 },
+        },
 
-        margin: { left: 10, right: 10, top: TOP_MARGIN },
+        margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
+
         showHead: "everyPage",
         didDrawPage: () => header(doc, `Selectividade — ${panel.name}`, logo),
       });
@@ -479,7 +523,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     head: [["Cabo", "Metros"]],
     body: Array.from(matCables.entries()).map(([k, v]) => [k, v.toFixed(1)]),
     columnStyles: { 1: { halign: "right", fontStyle: "bold" } },
-    margin: { left: 10, right: 10, top: TOP_MARGIN },
+    margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
     showHead: "everyPage",
     didDrawPage: () => header(doc, "6. Lista Global de Materiais", logo),
   });
@@ -490,7 +534,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     head: [["Aparelho", "Quantidade"]],
     body: Array.from(matBreakers.entries()).map(([k, v]) => [k, String(v)]),
     columnStyles: { 1: { halign: "right", fontStyle: "bold" } },
-    margin: { left: 10, right: 10, top: TOP_MARGIN },
+    margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
     showHead: "everyPage",
     didDrawPage: () => header(doc, "6. Lista Global de Materiais", logo),
   });
@@ -506,14 +550,18 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   doc.setDrawColor(0);
   doc.setLineWidth(0.2);
   const wpg = doc.internal.pageSize.getWidth();
-  const baseY = 120;
-  doc.line(30, baseY, 120, baseY);
-  doc.line(wpg - 120, baseY, wpg - 30, baseY);
+  const baseY = 150;
+  const sigW = 70;
+  const leftSigX = MARGIN + 6;
+  const rightSigX = wpg - MARGIN - 6 - sigW;
+  doc.line(leftSigX, baseY, leftSigX + sigW, baseY);
+  doc.line(rightSigX, baseY, rightSigX + sigW, baseY);
   doc.setFontSize(9);
   doc.setTextColor(0);
-  doc.text("Técnico Responsável", 75, baseY + 6, { align: "center" });
-  doc.text("Cliente", wpg - 75, baseY + 6, { align: "center" });
-  doc.text(`Data: ${new Date().toLocaleDateString("pt-PT")}`, 30, baseY + 16);
+  doc.text("Técnico Responsável", leftSigX + sigW / 2, baseY + 6, { align: "center" });
+  doc.text("Cliente", rightSigX + sigW / 2, baseY + 6, { align: "center" });
+  doc.text(`Data: ${new Date().toLocaleDateString("pt-PT")}`, leftSigX, baseY + 16);
+
 
   addFooter(doc);
   const fileBase = p?.obra ? p.obra.replace(/[^\w\-]+/g, "_") : "Projeto";
@@ -540,35 +588,39 @@ function orderPanels(panels: Panel[], activeId: string | null): Panel[] {
 // Diagrama em árvore dos quadros (quem alimenta quem)
 function drawPanelTree(doc: jsPDF, panels: Panel[], startY: number) {
   const roots = panels.filter(p => !panels.some(q => q.name === p.origin && q.id !== p.id));
-  const boxW = 78, boxH = 22, gapX = 22, gapY = 10;
+  const boxH = 22, gapY = 8, indent = 12;
+  const full = usableWidth(doc);
   let y = startY + 2;
   const h = doc.internal.pageSize.getHeight();
 
   const drawNode = (panel: Panel, depth: number) => {
-    if (y + boxH > h - 16) {
+    if (y + boxH > h - 18) {
       doc.addPage("a4", "portrait");
       header(doc, "2. Diagrama de Quadros (cont.)");
       y = TOP_MARGIN;
     }
-    const x = 14 + depth * (boxW + gapX);
+    const d = Math.min(depth, 5);
+    const x = MARGIN + d * indent;
+    const boxW = full - d * indent;
     const t = panelTotals(panel);
     doc.setDrawColor(20, 80, 60);
     doc.setLineWidth(0.4);
-    doc.setFillColor(depth === 0 ? 225 : 240, depth === 0 ? 245 : 246, depth === 0 ? 232 : 252);
+    doc.setFillColor(d === 0 ? 225 : 240, d === 0 ? 245 : 246, d === 0 ? 232 : 252);
     doc.rect(x, y, boxW, boxH, "FD");
     doc.setTextColor(15);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(panel.name, x + 3, y + 6);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.6);
+    doc.setFontSize(6.8);
     doc.text(`Origem: ${panel.origin}`, x + 3, y + 11);
     doc.text(`Geral: ${t.mainRating} A · ${panel.phase} · ${panel.circuits.length} circ.`, x + 3, y + 15);
-    doc.text(`Alim.: ${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? panel.feederParallel + "× " : ""}${panel.feederSection}mm² · ${panel.feederLength}m`, x + 3, y + 19);
+    doc.text(`Alim.: ${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? panel.feederParallel + "× " : ""}${panel.feederSection} mm² · ${panel.feederLength} m`, x + 3, y + 19);
 
-    if (depth > 0) {
+    if (d > 0) {
       doc.setDrawColor(120);
-      doc.line(x - gapX, y + boxH / 2, x, y + boxH / 2);
+      doc.line(x - indent / 2, y - gapY, x - indent / 2, y + boxH / 2);
+      doc.line(x - indent / 2, y + boxH / 2, x, y + boxH / 2);
     }
     y += boxH + gapY;
     panels.filter(k => k.origin === panel.name && k.id !== panel.id).forEach(k => drawNode(k, depth + 1));
@@ -577,75 +629,98 @@ function drawPanelTree(doc: jsPDF, panels: Panel[], startY: number) {
   (roots.length ? roots : panels).forEach(r => drawNode(r, 0));
 
   if (!panels.some(p => panels.some(q => q.name === p.origin && q.id !== p.id))) {
-    doc.setFontSize(8.5);
-    doc.setTextColor(80);
-    doc.text("Nota: não existem quadros parciais alimentados a partir de outros quadros neste projecto.", 14, y + 4);
-    doc.setTextColor(0);
+    paragraph(doc, "Nota: não existem quadros parciais alimentados a partir de outros quadros neste projecto.", y + 4);
   }
 }
 
+
 function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
-  const w = doc.internal.pageSize.getWidth();
+  const full = usableWidth(doc);
+  const pageH = doc.internal.pageSize.getHeight();
+  const t = panelTotals(panel);
+  const cx = MARGIN + full / 2;
+
   doc.setDrawColor(20, 80, 60);
   doc.setLineWidth(0.5);
 
+  // Origem
+  const boxW = 90, boxH = 22;
+  let y = TOP_MARGIN + 4;
   doc.setFillColor(235, 250, 240);
-  doc.rect(30, 34, 80, 30, "FD");
-  doc.setFontSize(11);
+  doc.rect(cx - boxW / 2, y, boxW, boxH, "FD");
   doc.setTextColor(20);
-  doc.text(`Origem: ${panel.origin}`, 70, 46, { align: "center" });
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Origem: ${panel.origin}`, cx, y + 9, { align: "center" });
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text(`Icc: ${panel.iccOriginKA} kA`, 70, 54, { align: "center" });
+  doc.text(`Icc: ${panel.iccOriginKA} kA`, cx, y + 16, { align: "center" });
 
-  doc.line(110, 49, 150, 49);
-  doc.setFontSize(8);
-  doc.text(`Cabo ${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? panel.feederParallel + "× " : ""}${panel.feederSection}mm²`, 130, 44, { align: "center" });
-  doc.text(`L = ${panel.feederLength} m`, 130, 54, { align: "center" });
+  // Ligação vertical (cabo)
+  y += boxH;
+  doc.setDrawColor(20, 80, 60);
+  doc.line(cx, y, cx, y + 16);
+  doc.setFontSize(7.5);
+  doc.text(`Cabo ${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? panel.feederParallel + "× " : ""}${panel.feederSection} mm² · L = ${panel.feederLength} m`, cx + 4, y + 9);
+  y += 16;
 
-  const t = panelTotals(panel);
+  // Quadro
+  const qW = 110, qH = 26;
   doc.setFillColor(220, 240, 255);
-  doc.rect(150, 34, 95, 30, "FD");
-  doc.setFontSize(11);
-  doc.text(`Quadro: ${panel.name}`, 197, 44, { align: "center" });
-  doc.setFontSize(8);
-  doc.text(`Geral ${t.mainRating} A · ${panel.circuits.length} circuitos`, 197, 52, { align: "center" });
-  doc.text(`Icc barramento: ${panelIccKA({ ...panel, feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1) }).toFixed(1)} kA`, 197, 59, { align: "center" });
+  doc.rect(cx - qW / 2, y, qW, qH, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(`Quadro: ${panel.name}`, cx, y + 9, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text(`Geral ${t.mainRating} A · ${panel.circuits.length} circuitos`, cx, y + 16, { align: "center" });
+  doc.text(`Icc barramento: ${panelIccKA({ ...panel, feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1) }).toFixed(1)} kA`, cx, y + 22, { align: "center" });
+  y += qH + 6;
 
+  // Quadros parciais alimentados
   if (kids.length) {
-    doc.setFontSize(8);
-    doc.setFillColor(255, 245, 225);
-    kids.slice(0, 4).forEach((k, i) => {
-      const x = 255 + i * 0; const yk = 30 + i * 16;
-      doc.rect(x, yk, 60, 13, "FD");
-      doc.text(`${k.name} (parcial)`, x + 3, yk + 5);
-      doc.setFontSize(7);
-      doc.text(`${k.circuits.length} circ. · ${panelTotals(k).mainRating} A`, x + 3, yk + 10);
-      doc.setFontSize(8);
-      doc.line(245, 49, 255, yk + 6);
+    const kW = (full - 8) / 3;
+    kids.slice(0, 6).forEach((k, i) => {
+      const col = i % 3, row = Math.floor(i / 3);
+      const x = MARGIN + col * (kW + 4);
+      const yk = y + row * 18;
+      doc.setFillColor(255, 245, 225);
+      doc.setDrawColor(190, 150, 60);
+      doc.rect(x, yk, kW, 14, "FD");
+      doc.setFontSize(7.5);
+      doc.setTextColor(20);
+      doc.text(doc.splitTextToSize(`${k.name} (parcial)`, kW - 6)[0], x + 3, yk + 6);
+      doc.setFontSize(6.8);
+      doc.text(`${k.circuits.length} circ. · ${panelTotals(k).mainRating} A`, x + 3, yk + 11);
     });
+    y += Math.ceil(Math.min(kids.length, 6) / 3) * 18 + 4;
   }
 
-  const startY = 82;
-  const perRow = 6;
-  const colW = (w - 40) / perRow;
+  // Circuitos
+  const perRow = 4;
+  const gap = 4;
+  const colW = (full - gap * (perRow - 1)) / perRow;
+  const cardH = 24;
   panel.circuits.forEach((c, i) => {
     const col = i % perRow;
     const row = Math.floor(i / perRow);
-    const y = startY + row * 32;
-    if (y + 28 > doc.internal.pageSize.getHeight() - 14) return;
-    const x = 20 + col * colW;
+    const cy = y + row * (cardH + gap);
+    if (cy + cardH > pageH - 16) return;
+    const x = MARGIN + col * (colW + gap);
     doc.setFillColor(250, 250, 250);
     doc.setDrawColor(150);
-    doc.rect(x, y, colW - 5, 26, "FD");
-    doc.setFontSize(7.5);
+    doc.rect(x, cy, colW, cardH, "FD");
+    doc.setFontSize(7);
     doc.setTextColor(20);
-    doc.text(doc.splitTextToSize(c.name, colW - 10)[0], x + 3, y + 6);
-    doc.setFontSize(6.8);
-    doc.text(`${c.type} ${c.phase}${c.phaseAssign ? "/" + c.phaseAssign : ""}`, x + 3, y + 12);
-    doc.text(`${c.power}W · L=${c.length}m`, x + 3, y + 17);
-    doc.text(`In=${c.inBreaker ?? "auto"}A`, x + 3, y + 22);
+    doc.text(doc.splitTextToSize(c.name, colW - 5)[0], x + 2.5, cy + 6);
+    doc.setFontSize(6.4);
+    doc.text(`${c.type} ${c.phase}${c.phaseAssign ? "/" + c.phaseAssign : ""}`, x + 2.5, cy + 11.5);
+    doc.text(`${c.power} W · L=${c.length} m`, x + 2.5, cy + 16.5);
+    doc.text(`In=${c.inBreaker ?? "auto"} A`, x + 2.5, cy + 21.5);
   });
+  doc.setTextColor(0);
 }
+
 
 // ===== Diagrama geral em cascata de TODOS os quadros =====
 export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: string; project?: ProjectInfo }) {
@@ -662,22 +737,18 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
     return aRoot - bRoot;
   });
 
-  let y = 26;
+  let y = TOP_MARGIN;
   const pLineC = projectLine(opts?.project);
   if (pLineC) {
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(pLineC, 10, y);
-    doc.setFont("helvetica", "normal");
-    y += 6;
+    y = paragraph(doc, pLineC, y, 8.5);
   }
-  const boxH = 30;
-  const gapY = 14;
-  const leftX = 16;
-  const boxW = 110;
+  const boxH = 26;
+  const gapY = 10;
+  const leftX = MARGIN;
+  const boxW = usableWidth(doc);
 
   ordered.forEach((panel, idx) => {
-    if (y + boxH + gapY > h - 14) {
+    if (y + boxH + gapY > h - 16) {
       doc.addPage("a4", "portrait");
       header(doc, "Diagrama Geral em Cascata (cont.)", opts?.logoDataUrl);
       y = TOP_MARGIN;
@@ -689,41 +760,49 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
     doc.rect(leftX, y, boxW, boxH, "FD");
     doc.setTextColor(20);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text(panel.name, leftX + 4, y + 8);
+    doc.setFontSize(10);
+    doc.text(panel.name, leftX + 4, y + 7);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.text(`Origem: ${panel.origin}`, leftX + 4, y + 14);
-    doc.text(`Alim.: ${panel.phase} ${panel.voltageMono}/${panel.voltageTri}V · Icc orig ${panel.iccOriginKA}kA · Icc barr. ${panelIccKA(panel).toFixed(1)}kA`, leftX + 4, y + 19);
+    doc.setFontSize(7);
+    doc.text(`Origem: ${panel.origin}`, leftX + 4, y + 12);
+    doc.text(`Alim.: ${panel.phase} ${panel.voltageMono}/${panel.voltageTri} V · Icc orig ${panel.iccOriginKA} kA · Icc barr. ${panelIccKA(panel).toFixed(1)} kA`, leftX + 4, y + 16.5);
 
     const t = panelTotals(panel);
-    doc.text(`Corte geral: ${t.cutNeed > 100 ? "Fusíveis gG" : "Interruptor"} ${t.mainRating}A`, leftX + 4, y + 24);
-    doc.text(`Interligação: ${panel.feederMaterial} ${panel.feederSection}mm² · L=${panel.feederLength}m`, leftX + 4, y + 28);
-
-    doc.setDrawColor(120);
-    doc.line(leftX + boxW, y + boxH / 2, leftX + boxW + 8, y + boxH / 2);
+    doc.text(`Corte geral: ${t.cutNeed > 100 ? "Fusíveis gG" : "Interruptor"} ${t.mainRating} A`, leftX + 4, y + 21);
+    doc.text(`Interligação: ${panel.feederMaterial} ${panel.feederSection} mm² · L = ${panel.feederLength} m`, leftX + 100, y + 21);
+    doc.setTextColor(0);
 
     const rows = panel.circuits.map((c, i) => {
       const r = computeCircuit(c, t.ctx);
       return [String(i + 1), c.name, c.phase + (c.phaseAssign ? "/" + c.phaseAssign : ""),
-        `${c.power}W`, `${r.in}A ${r.curve}`, `${r.parallel > 1 ? r.parallel + "×" : ""}${r.section}mm²${c.material === "Al" ? " Al" : ""}`, `${c.length}m`];
+        `${c.power} W`, `${r.in}A ${r.curve}`, `${r.parallel > 1 ? r.parallel + "×" : ""}${r.section} mm²${c.material === "Al" ? " Al" : ""}`, `${c.length} m`];
     });
     autoTable(doc, {
       ...tableBase(6.5),
-      startY: y,
-      margin: { left: leftX + boxW + 10, right: 10, top: TOP_MARGIN },
-      head: [["#", "Circuito", "Fase", "P", "Proteção", "Secção", "L"]],
+      startY: y + boxH + 2,
+      margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
+      tableWidth: usableWidth(doc),
+      head: [["#", "Circuito", "Fase", "P", "Protecção", "Secção", "L"]],
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", ""]],
-      styles: { ...tableBase(6.5).styles, cellPadding: 1 },
-      columnStyles: { 0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] }, 1: { fontStyle: "bold" } },
+      styles: { ...tableBase(6.5).styles, cellPadding: 1.4 },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold", cellWidth: 54 },
+        2: { cellWidth: 18, halign: "center" },
+        3: { cellWidth: 22, halign: "right" },
+        4: { cellWidth: 28 },
+        5: { cellWidth: 30 },
+        6: { cellWidth: 27, halign: "right" },
+      },
 
       showHead: "everyPage",
       didDrawPage: () => header(doc, "Diagrama Geral em Cascata (cont.)", opts?.logoDataUrl),
     });
     // @ts-ignore
     const tableEnd = (doc as any).lastAutoTable.finalY;
-    y = Math.max(y + boxH, tableEnd) + gapY;
+    y = tableEnd + gapY;
   });
+
 
   addFooter(doc);
   doc.save("PLUGTECH_Diagrama_Cascata.pdf");
