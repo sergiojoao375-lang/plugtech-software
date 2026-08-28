@@ -431,7 +431,8 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
                 : [176, 42, 42];
         }
       },
-      margin: { left: 10, right: 10, top: TOP_MARGIN },
+      margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
+
 
       showHead: "everyPage",
       didDrawPage: () => header(doc, `Selectividade — ${panel.name}`, logo),
@@ -453,13 +454,24 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
           ratio >= 2 ? "Discriminação assegurada em sobrecarga." : "Recomenda-se aparelho geral selectivo (curva S / temporizado)."];
       });
       autoTable(doc, {
-        ...tableBase(7.5),
+        ...tableBase(6.6),
         startY: y,
-        head: [["Quadro parcial", "Geral do parcial", "Geral deste quadro", "Razão", "Selectividade", "Alimentação", "Observação"]],
+        head: [["Quadro parcial", "Geral parcial", "Geral deste quadro", "Razão", "Selectividade", "Alimentação", "Observação"]],
         body: kRows,
-        headStyles: { ...tableBase(7.5).headStyles, fillColor: BRAND_BLUE },
+        headStyles: { ...tableBase(6.6).headStyles, fillColor: BRAND_BLUE },
+        tableWidth: usableWidth(doc),
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 26 },
+          1: { cellWidth: 20, halign: "center" },
+          2: { cellWidth: 22, halign: "center" },
+          3: { cellWidth: 12, halign: "right" },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 40 },
+          6: { cellWidth: 44 },
+        },
 
-        margin: { left: 10, right: 10, top: TOP_MARGIN },
+        margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
+
         showHead: "everyPage",
         didDrawPage: () => header(doc, `Selectividade — ${panel.name}`, logo),
       });
