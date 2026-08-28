@@ -623,67 +623,92 @@ function drawPanelTree(doc: jsPDF, panels: Panel[], startY: number) {
 
 
 function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
-  const w = doc.internal.pageSize.getWidth();
+  const full = usableWidth(doc);
+  const pageH = doc.internal.pageSize.getHeight();
+  const t = panelTotals(panel);
+  const cx = MARGIN + full / 2;
+
   doc.setDrawColor(20, 80, 60);
   doc.setLineWidth(0.5);
 
+  // Origem
+  const boxW = 90, boxH = 22;
+  let y = TOP_MARGIN + 4;
   doc.setFillColor(235, 250, 240);
-  doc.rect(30, 34, 80, 30, "FD");
-  doc.setFontSize(11);
+  doc.rect(cx - boxW / 2, y, boxW, boxH, "FD");
   doc.setTextColor(20);
-  doc.text(`Origem: ${panel.origin}`, 70, 46, { align: "center" });
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Origem: ${panel.origin}`, cx, y + 9, { align: "center" });
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text(`Icc: ${panel.iccOriginKA} kA`, 70, 54, { align: "center" });
+  doc.text(`Icc: ${panel.iccOriginKA} kA`, cx, y + 16, { align: "center" });
 
-  doc.line(110, 49, 150, 49);
-  doc.setFontSize(8);
-  doc.text(`Cabo ${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? panel.feederParallel + "× " : ""}${panel.feederSection}mm²`, 130, 44, { align: "center" });
-  doc.text(`L = ${panel.feederLength} m`, 130, 54, { align: "center" });
+  // Ligação vertical (cabo)
+  y += boxH;
+  doc.setDrawColor(20, 80, 60);
+  doc.line(cx, y, cx, y + 16);
+  doc.setFontSize(7.5);
+  doc.text(`Cabo ${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? panel.feederParallel + "× " : ""}${panel.feederSection} mm² · L = ${panel.feederLength} m`, cx + 4, y + 9);
+  y += 16;
 
-  const t = panelTotals(panel);
+  // Quadro
+  const qW = 110, qH = 26;
   doc.setFillColor(220, 240, 255);
-  doc.rect(150, 34, 95, 30, "FD");
-  doc.setFontSize(11);
-  doc.text(`Quadro: ${panel.name}`, 197, 44, { align: "center" });
-  doc.setFontSize(8);
-  doc.text(`Geral ${t.mainRating} A · ${panel.circuits.length} circuitos`, 197, 52, { align: "center" });
-  doc.text(`Icc barramento: ${panelIccKA({ ...panel, feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1) }).toFixed(1)} kA`, 197, 59, { align: "center" });
+  doc.rect(cx - qW / 2, y, qW, qH, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(`Quadro: ${panel.name}`, cx, y + 9, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text(`Geral ${t.mainRating} A · ${panel.circuits.length} circuitos`, cx, y + 16, { align: "center" });
+  doc.text(`Icc barramento: ${panelIccKA({ ...panel, feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1) }).toFixed(1)} kA`, cx, y + 22, { align: "center" });
+  y += qH + 6;
 
+  // Quadros parciais alimentados
   if (kids.length) {
-    doc.setFontSize(8);
-    doc.setFillColor(255, 245, 225);
-    kids.slice(0, 4).forEach((k, i) => {
-      const x = 255 + i * 0; const yk = 30 + i * 16;
-      doc.rect(x, yk, 60, 13, "FD");
-      doc.text(`${k.name} (parcial)`, x + 3, yk + 5);
-      doc.setFontSize(7);
-      doc.text(`${k.circuits.length} circ. · ${panelTotals(k).mainRating} A`, x + 3, yk + 10);
-      doc.setFontSize(8);
-      doc.line(245, 49, 255, yk + 6);
+    const kW = (full - 8) / 3;
+    kids.slice(0, 6).forEach((k, i) => {
+      const col = i % 3, row = Math.floor(i / 3);
+      const x = MARGIN + col * (kW + 4);
+      const yk = y + row * 18;
+      doc.setFillColor(255, 245, 225);
+      doc.setDrawColor(190, 150, 60);
+      doc.rect(x, yk, kW, 14, "FD");
+      doc.setFontSize(7.5);
+      doc.setTextColor(20);
+      doc.text(doc.splitTextToSize(`${k.name} (parcial)`, kW - 6)[0], x + 3, yk + 6);
+      doc.setFontSize(6.8);
+      doc.text(`${k.circuits.length} circ. · ${panelTotals(k).mainRating} A`, x + 3, yk + 11);
     });
+    y += Math.ceil(Math.min(kids.length, 6) / 3) * 18 + 4;
   }
 
-  const startY = 82;
-  const perRow = 6;
-  const colW = (w - 40) / perRow;
+  // Circuitos
+  const perRow = 4;
+  const gap = 4;
+  const colW = (full - gap * (perRow - 1)) / perRow;
+  const cardH = 24;
   panel.circuits.forEach((c, i) => {
     const col = i % perRow;
     const row = Math.floor(i / perRow);
-    const y = startY + row * 32;
-    if (y + 28 > doc.internal.pageSize.getHeight() - 14) return;
-    const x = 20 + col * colW;
+    const cy = y + row * (cardH + gap);
+    if (cy + cardH > pageH - 16) return;
+    const x = MARGIN + col * (colW + gap);
     doc.setFillColor(250, 250, 250);
     doc.setDrawColor(150);
-    doc.rect(x, y, colW - 5, 26, "FD");
-    doc.setFontSize(7.5);
+    doc.rect(x, cy, colW, cardH, "FD");
+    doc.setFontSize(7);
     doc.setTextColor(20);
-    doc.text(doc.splitTextToSize(c.name, colW - 10)[0], x + 3, y + 6);
-    doc.setFontSize(6.8);
-    doc.text(`${c.type} ${c.phase}${c.phaseAssign ? "/" + c.phaseAssign : ""}`, x + 3, y + 12);
-    doc.text(`${c.power}W · L=${c.length}m`, x + 3, y + 17);
-    doc.text(`In=${c.inBreaker ?? "auto"}A`, x + 3, y + 22);
+    doc.text(doc.splitTextToSize(c.name, colW - 5)[0], x + 2.5, cy + 6);
+    doc.setFontSize(6.4);
+    doc.text(`${c.type} ${c.phase}${c.phaseAssign ? "/" + c.phaseAssign : ""}`, x + 2.5, cy + 11.5);
+    doc.text(`${c.power} W · L=${c.length} m`, x + 2.5, cy + 16.5);
+    doc.text(`In=${c.inBreaker ?? "auto"} A`, x + 2.5, cy + 21.5);
   });
+  doc.setTextColor(0);
 }
+
 
 // ===== Diagrama geral em cascata de TODOS os quadros =====
 export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: string; project?: ProjectInfo }) {
