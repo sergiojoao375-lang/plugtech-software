@@ -725,22 +725,18 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
     return aRoot - bRoot;
   });
 
-  let y = 26;
+  let y = TOP_MARGIN;
   const pLineC = projectLine(opts?.project);
   if (pLineC) {
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(pLineC, 10, y);
-    doc.setFont("helvetica", "normal");
-    y += 6;
+    y = paragraph(doc, pLineC, y, 8.5);
   }
-  const boxH = 30;
-  const gapY = 14;
-  const leftX = 16;
-  const boxW = 110;
+  const boxH = 26;
+  const gapY = 10;
+  const leftX = MARGIN;
+  const boxW = usableWidth(doc);
 
   ordered.forEach((panel, idx) => {
-    if (y + boxH + gapY > h - 14) {
+    if (y + boxH + gapY > h - 16) {
       doc.addPage("a4", "portrait");
       header(doc, "Diagrama Geral em Cascata (cont.)", opts?.logoDataUrl);
       y = TOP_MARGIN;
@@ -752,41 +748,49 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
     doc.rect(leftX, y, boxW, boxH, "FD");
     doc.setTextColor(20);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text(panel.name, leftX + 4, y + 8);
+    doc.setFontSize(10);
+    doc.text(panel.name, leftX + 4, y + 7);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.text(`Origem: ${panel.origin}`, leftX + 4, y + 14);
-    doc.text(`Alim.: ${panel.phase} ${panel.voltageMono}/${panel.voltageTri}V · Icc orig ${panel.iccOriginKA}kA · Icc barr. ${panelIccKA(panel).toFixed(1)}kA`, leftX + 4, y + 19);
+    doc.setFontSize(7);
+    doc.text(`Origem: ${panel.origin}`, leftX + 4, y + 12);
+    doc.text(`Alim.: ${panel.phase} ${panel.voltageMono}/${panel.voltageTri} V · Icc orig ${panel.iccOriginKA} kA · Icc barr. ${panelIccKA(panel).toFixed(1)} kA`, leftX + 4, y + 16.5);
 
     const t = panelTotals(panel);
-    doc.text(`Corte geral: ${t.cutNeed > 100 ? "Fusíveis gG" : "Interruptor"} ${t.mainRating}A`, leftX + 4, y + 24);
-    doc.text(`Interligação: ${panel.feederMaterial} ${panel.feederSection}mm² · L=${panel.feederLength}m`, leftX + 4, y + 28);
-
-    doc.setDrawColor(120);
-    doc.line(leftX + boxW, y + boxH / 2, leftX + boxW + 8, y + boxH / 2);
+    doc.text(`Corte geral: ${t.cutNeed > 100 ? "Fusíveis gG" : "Interruptor"} ${t.mainRating} A`, leftX + 4, y + 21);
+    doc.text(`Interligação: ${panel.feederMaterial} ${panel.feederSection} mm² · L = ${panel.feederLength} m`, leftX + 100, y + 21);
+    doc.setTextColor(0);
 
     const rows = panel.circuits.map((c, i) => {
       const r = computeCircuit(c, t.ctx);
       return [String(i + 1), c.name, c.phase + (c.phaseAssign ? "/" + c.phaseAssign : ""),
-        `${c.power}W`, `${r.in}A ${r.curve}`, `${r.parallel > 1 ? r.parallel + "×" : ""}${r.section}mm²${c.material === "Al" ? " Al" : ""}`, `${c.length}m`];
+        `${c.power} W`, `${r.in}A ${r.curve}`, `${r.parallel > 1 ? r.parallel + "×" : ""}${r.section} mm²${c.material === "Al" ? " Al" : ""}`, `${c.length} m`];
     });
     autoTable(doc, {
       ...tableBase(6.5),
-      startY: y,
-      margin: { left: leftX + boxW + 10, right: 10, top: TOP_MARGIN },
-      head: [["#", "Circuito", "Fase", "P", "Proteção", "Secção", "L"]],
+      startY: y + boxH + 2,
+      margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
+      tableWidth: usableWidth(doc),
+      head: [["#", "Circuito", "Fase", "P", "Protecção", "Secção", "L"]],
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", ""]],
-      styles: { ...tableBase(6.5).styles, cellPadding: 1 },
-      columnStyles: { 0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] }, 1: { fontStyle: "bold" } },
+      styles: { ...tableBase(6.5).styles, cellPadding: 1.4 },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold", cellWidth: 54 },
+        2: { cellWidth: 18, halign: "center" },
+        3: { cellWidth: 22, halign: "right" },
+        4: { cellWidth: 28 },
+        5: { cellWidth: 30 },
+        6: { cellWidth: 27, halign: "right" },
+      },
 
       showHead: "everyPage",
       didDrawPage: () => header(doc, "Diagrama Geral em Cascata (cont.)", opts?.logoDataUrl),
     });
     // @ts-ignore
     const tableEnd = (doc as any).lastAutoTable.finalY;
-    y = Math.max(y + boxH, tableEnd) + gapY;
+    y = tableEnd + gapY;
   });
+
 
   addFooter(doc);
   doc.save("PLUGTECH_Diagrama_Cascata.pdf");
