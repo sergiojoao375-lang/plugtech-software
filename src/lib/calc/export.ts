@@ -323,25 +323,35 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       ];
     });
     autoTable(doc, {
-      ...tableBase(7),
+      ...tableBase(5.9),
       startY: y,
-      head: [["#", "Circuito", "Tipo", "Fase", "P(W)", "Cos φ", "L(m)", "S(VA)", "Ib(A)", "Proteção", "Secção", "Iz(A)", "ΔU acum.", "Icc(kA)", "Instalação"]],
+      head: [["#", "Circuito", "Tipo", "Fase", "P (W)", "Cos φ", "L (m)", "S (VA)", "Ib (A)", "Protecção", "Secção", "Iz (A)", "ΔU %", "Icc kA", "Instalação"]],
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", "", "", "", "", "", "", "", "", ""]],
       columnStyles: {
-        0: { halign: "center", cellWidth: 8, textColor: [120, 130, 128] },
-        1: { fontStyle: "bold" },
-        8: { textColor: BRAND_BLUE },
-        9: { fontStyle: "bold" },
-        10: { fontStyle: "bold", textColor: BRAND_GREEN },
-        12: { textColor: BRAND_BLUE },
+        0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold", cellWidth: 26 },
+        2: { cellWidth: 12 },
+        3: { cellWidth: 12, halign: "center" },
+        4: { cellWidth: 12, halign: "right" },
+        5: { cellWidth: 10, halign: "right" },
+        6: { cellWidth: 10, halign: "right" },
+        7: { cellWidth: 12, halign: "right" },
+        8: { cellWidth: 11, halign: "right", textColor: BRAND_BLUE },
+        9: { cellWidth: 15, fontStyle: "bold" },
+        10: { cellWidth: 15, fontStyle: "bold", textColor: BRAND_GREEN },
+        11: { cellWidth: 10, halign: "right" },
+        12: { cellWidth: 13, halign: "right", textColor: BRAND_BLUE },
+        13: { cellWidth: 11, halign: "right" },
+        14: { cellWidth: 14 },
       },
-      margin: { left: 10, right: 10, top: TOP_MARGIN },
+      margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
 
-      tableWidth: "auto",
+      tableWidth: usableWidth(doc),
       rowPageBreak: "avoid",
       showHead: "everyPage",
-      didDrawPage: (d) => { if (d.pageNumber > 1 || true) header(doc, `Quadro ${panel.name} — circuitos`, logo); },
+      didDrawPage: () => header(doc, `Quadro ${panel.name} — circuitos`, logo),
     });
+
     // @ts-ignore
     y = (doc as any).lastAutoTable.finalY + 6;
 
