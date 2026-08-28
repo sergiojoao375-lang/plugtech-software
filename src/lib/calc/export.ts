@@ -223,7 +223,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   autoTable(doc, {
     ...tableBase(10),
     startY: y,
-    margin: { left: 40, right: 40 },
+    margin: { left: 22, right: 22 },
     alternateRowStyles: { fillColor: [255, 255, 255] },
     columnStyles: { 0: { fontStyle: "bold", fillColor: [237, 245, 241], textColor: BRAND_GREEN, cellWidth: 62 } },
 
@@ -268,7 +268,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     "Aparelho de corte geral dimensionado para 1,25 · Ib da fase mais carregada, com margem adicional de 10% na escolha do calibre normalizado.",
     "Equilíbrio de fases optimizado por algoritmo de repartição de cargas monofásicas pelas três fases.",
   ];
-  criterios.forEach(t => { y = ensureSpace(doc, y, 12, "1. Critérios de Cálculo", logo); y = paragraph(doc, "•  " + t, y); });
+  criterios.forEach(t => { y = ensureSpace(doc, y, textHeight(doc, t, 8.5, 4.5), "1. Critérios de Cálculo", logo); y = bullet(doc, t, y); });
 
   // ---------- 2. Diagrama de quadros ----------
   doc.addPage("a4", "portrait");
@@ -372,7 +372,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       "Selectividade cronométrica (tempo): obtida com aparelho geral selectivo/regulável, com temporização de curta duração (curva S ou retardo intencional de 50–100 ms), permitindo ao disjuntor terminal actuar primeiro em curto-circuito.",
       "Selectividade energética (limitação): o disjuntor terminal limita a energia específica passante (I²t) a um valor inferior ao necessário para o disparo magnético do aparelho de montante — indicada pelos fabricantes em tabelas de discriminação.",
       "Selectividade diferencial: o diferencial de montante deve ser do tipo S (selectivo, retardado) com sensibilidade pelo menos o triplo da do diferencial a jusante (ex.: 300 mA tipo S a montante de 30 mA instantâneos).",
-    ].forEach(t2 => { y = ensureSpace(doc, y, 14, `Selectividade — ${panel.name}`, logo); y = paragraph(doc, "•  " + t2, y); });
+    ].forEach(t2 => { y = ensureSpace(doc, y, textHeight(doc, t2, 8.5, 4.5), `Selectividade — ${panel.name}`, logo); y = bullet(doc, t2, y); });
     y += 1;
     y = ensureSpace(doc, y, 20, `Selectividade — ${panel.name}`, logo);
     y = paragraph(doc, `Coordenação neste quadro: o aparelho geral tem calibre ${t.mainRating} A e o barramento apresenta uma corrente de curto-circuito presumida de ${panelIccKA({ ...panel, feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1) }).toFixed(1)} kA, pelo que todos os aparelhos instalados devem ter poder de corte (Icu/Icn) igual ou superior a esse valor, ou ser objecto de protecção de retaguarda (back-up) pelo aparelho geral. Verifica-se ainda, para cada circuito, a condição Ib ≤ In ≤ Iz.`, y);
