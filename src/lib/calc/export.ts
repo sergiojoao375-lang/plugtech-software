@@ -289,10 +289,12 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
 
     const feederDesc = `${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? (panel.feederParallel + "× ") : ""}${panel.feederSection} mm² · L = ${panel.feederLength} m${panel.feederAuto ? " (secção automática)" : ""}`;
     autoTable(doc, {
-      ...tableBase(8),
+      ...tableBase(6.6),
       startY: y,
-      margin: { left: 10, right: 10, top: TOP_MARGIN },
+      margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
+      tableWidth: usableWidth(doc),
       alternateRowStyles: { fillColor: [255, 255, 255] },
+
 
       head: [["Origem", "Tipo de quadro", "Sistema", "Icc origem", "Icc barramento", "Linha de interligação", "ΔU interligação", "Circuitos"]],
       body: [[
@@ -360,14 +362,14 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     const modules = panel.circuits.reduce((a, c) => a + (c.phase === "Tri" ? 3 : 2), 4);
     const modulesTotal = Math.ceil(modules * 1.2);
     const imb = phaseImbalance(panel.circuits);
-    y = ensureSpace(doc, y, 34, `Quadro ${panel.name} — resumo`, logo);
+    y = ensureSpace(doc, y, 40, `Quadro ${panel.name} — resumo`, logo);
     y = sectionTitle(doc, "Resumo do quadro", y);
-    doc.setFontSize(9);
-    doc.text(`Potência instalada: ${t.totalP.toFixed(0)} W  |  Ib (fase mais carregada): ${t.ibTot.toFixed(1)} A  |  I de dimensionamento (1,25 · Ib): ${t.cutNeed.toFixed(1)} A`, 12, y);
-    doc.text(`Corte geral: ${cutType} — calibre ${t.mainRating} A`, 12, y + 5);
-    doc.text(`Módulos DIN estimados (reserva 20%): ${modulesTotal}`, 12, y + 10);
-    doc.text(`Desequilíbrio de fases: L1 = ${imb.L1.toFixed(0)} W · L2 = ${imb.L2.toFixed(0)} W · L3 = ${imb.L3.toFixed(0)} W  (${imb.pct.toFixed(1)} %)`, 12, y + 15);
-    y += 22;
+    y = paragraph(doc, `Potência instalada: ${t.totalP.toFixed(0)} W  |  Ib (fase mais carregada): ${t.ibTot.toFixed(1)} A  |  I de dimensionamento (1,25 · Ib): ${t.cutNeed.toFixed(1)} A`, y, 8.5);
+    y = paragraph(doc, `Corte geral: ${cutType} — calibre ${t.mainRating} A`, y, 8.5);
+    y = paragraph(doc, `Módulos DIN estimados (reserva 20%): ${modulesTotal}`, y, 8.5);
+    y = paragraph(doc, `Desequilíbrio de fases: L1 = ${imb.L1.toFixed(0)} W · L2 = ${imb.L2.toFixed(0)} W · L3 = ${imb.L3.toFixed(0)} W  (${imb.pct.toFixed(1)} %)`, y, 8.5);
+    y += 4;
+
 
     // --------- Selectividade e coordenação deste quadro ---------
     doc.addPage("a4", "portrait");
