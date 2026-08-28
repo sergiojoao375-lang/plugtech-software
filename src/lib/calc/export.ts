@@ -92,16 +92,23 @@ function header(doc: jsPDF, title: string, logo?: string) {
 
 function sectionTitle(doc: jsPDF, text: string, y: number) {
   const w = doc.internal.pageSize.getWidth();
-  doc.setFillColor(235, 242, 238);
-  doc.rect(10, y - 5, w - 20, 7.5, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
+  let size = 9.5;
+  doc.setFontSize(size);
+  while (size > 7 && doc.getTextWidth(text) > w - 28) {
+    size -= 0.5;
+    doc.setFontSize(size);
+  }
+  doc.setFillColor(235, 242, 238);
+  doc.rect(MARGIN - 2, y - 5, w - (MARGIN - 2) * 2, 7.5, "F");
   doc.setTextColor(20, 60, 45);
-  doc.text(text, 12, y);
+  doc.text(text, MARGIN, y);
   doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
   doc.setTextColor(0);
-  return y + 8;
+  return y + 9;
 }
+
 
 function ensureSpace(doc: jsPDF, y: number, needed: number, title: string, logo?: string): number {
   const h = doc.internal.pageSize.getHeight();
