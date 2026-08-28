@@ -511,7 +511,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     head: [["Cabo", "Metros"]],
     body: Array.from(matCables.entries()).map(([k, v]) => [k, v.toFixed(1)]),
     columnStyles: { 1: { halign: "right", fontStyle: "bold" } },
-    margin: { left: 10, right: 10, top: TOP_MARGIN },
+    margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
     showHead: "everyPage",
     didDrawPage: () => header(doc, "6. Lista Global de Materiais", logo),
   });
@@ -522,7 +522,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     head: [["Aparelho", "Quantidade"]],
     body: Array.from(matBreakers.entries()).map(([k, v]) => [k, String(v)]),
     columnStyles: { 1: { halign: "right", fontStyle: "bold" } },
-    margin: { left: 10, right: 10, top: TOP_MARGIN },
+    margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
     showHead: "everyPage",
     didDrawPage: () => header(doc, "6. Lista Global de Materiais", logo),
   });
