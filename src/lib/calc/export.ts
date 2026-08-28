@@ -538,14 +538,18 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   doc.setDrawColor(0);
   doc.setLineWidth(0.2);
   const wpg = doc.internal.pageSize.getWidth();
-  const baseY = 120;
-  doc.line(30, baseY, 120, baseY);
-  doc.line(wpg - 120, baseY, wpg - 30, baseY);
+  const baseY = 150;
+  const sigW = 70;
+  const leftSigX = MARGIN + 6;
+  const rightSigX = wpg - MARGIN - 6 - sigW;
+  doc.line(leftSigX, baseY, leftSigX + sigW, baseY);
+  doc.line(rightSigX, baseY, rightSigX + sigW, baseY);
   doc.setFontSize(9);
   doc.setTextColor(0);
-  doc.text("Técnico Responsável", 75, baseY + 6, { align: "center" });
-  doc.text("Cliente", wpg - 75, baseY + 6, { align: "center" });
-  doc.text(`Data: ${new Date().toLocaleDateString("pt-PT")}`, 30, baseY + 16);
+  doc.text("Técnico Responsável", leftSigX + sigW / 2, baseY + 6, { align: "center" });
+  doc.text("Cliente", rightSigX + sigW / 2, baseY + 6, { align: "center" });
+  doc.text(`Data: ${new Date().toLocaleDateString("pt-PT")}`, leftSigX, baseY + 16);
+
 
   addFooter(doc);
   const fileBase = p?.obra ? p.obra.replace(/[^\w\-]+/g, "_") : "Projeto";
