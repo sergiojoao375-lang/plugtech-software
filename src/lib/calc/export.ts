@@ -403,15 +403,23 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       return [String(i + 1), c.name, `${r.in} A ${r.curve}`, `${t.mainRating} A`, ratio.toFixed(2), sel, `${r.ib.toFixed(1)} / ${r.in} / ${r.iz.toFixed(0)}`, coord, obs];
     });
     autoTable(doc, {
-      ...tableBase(7),
+      ...tableBase(6.4),
       startY: y,
-      head: [["#", "Circuito", "Protecção jusante", "Geral montante", "Razão In(g)/In(c)", "Selectividade", "Ib / In / Iz (A)", "Coordenação", "Observação técnica"]],
+      head: [["#", "Circuito", "Prot. jusante", "Geral montante", "Razão", "Selectividade", "Ib / In / Iz (A)", "Coordenação", "Observação técnica"]],
       body: selRows.length ? selRows : [["—", "Sem circuitos", "", "", "", "", "", "", ""]],
+      tableWidth: usableWidth(doc),
       columnStyles: {
-        0: { halign: "center", cellWidth: 8, textColor: [120, 130, 128] },
-        1: { fontStyle: "bold" },
-        8: { cellWidth: 70 },
+        0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold", cellWidth: 26 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 18, halign: "center" },
+        4: { cellWidth: 13, halign: "right" },
+        5: { cellWidth: 20 },
+        6: { cellWidth: 22, halign: "center" },
+        7: { cellWidth: 18 },
+        8: { cellWidth: 42 },
       },
+
       didParseCell: (d: any) => {
         if (d.section !== "body") return;
         const v = String(d.cell.raw ?? "");
