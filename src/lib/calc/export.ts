@@ -79,10 +79,13 @@ function header(doc: jsPDF, title: string, logo?: string) {
   doc.setFont("helvetica", "normal");
   doc.text("SérgioTech", 26, 14);
   doc.setTextColor(255);
-  doc.setFontSize(11);
-  doc.text(title, w - 10, 11, { align: "right" });
+  doc.setFontSize(8.5);
+  const maxTitleW = w - 26 - 10 - 4;
+  const titleLine = (doc.splitTextToSize(title, maxTitleW) as string[])[0];
+  doc.text(titleLine, w - 10, 11, { align: "right" });
   doc.setTextColor(0);
   doc.setFillColor(30, 100, 60);
+
   doc.rect(0, 18, w, 1.2, "F");
   doc.setTextColor(0);
 }
@@ -208,15 +211,17 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   // ---------- Capa ----------
   const w = doc.internal.pageSize.getWidth();
   header(doc, "Memória de Cálculo Eléctrico", logo);
-  let y = 36;
+  let y = 40;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
+  doc.setFontSize(15);
   doc.setTextColor(20, 60, 45);
-  doc.text("MEMÓRIA DE CÁLCULO E DIMENSIONAMENTO", w / 2, y, { align: "center" });
-  doc.setFontSize(12);
+  doc.text(doc.splitTextToSize("MEMÓRIA DE CÁLCULO E DIMENSIONAMENTO", usableWidth(doc)), w / 2, y, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
   doc.setTextColor(60);
-  doc.text("Instalações Eléctricas de Baixa Tensão — RTIEBT (metodologia simplificada)", w / 2, y + 8, { align: "center" });
+  doc.text(doc.splitTextToSize("Instalações Eléctricas de Baixa Tensão — RTIEBT (metodologia simplificada)", usableWidth(doc)), w / 2, y + 8, { align: "center" });
   doc.setTextColor(0);
+
 
   y += 22;
   const p = opts?.project;
