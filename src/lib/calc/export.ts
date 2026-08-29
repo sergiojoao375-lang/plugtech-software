@@ -732,6 +732,7 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
   const gap = 4;
   const colW = (full - gap * (perRow - 1)) / perRow;
   const cardH = 24;
+  const bctx = panelTotals(panel).ctx;
   panel.circuits.forEach((c, i) => {
     const col = i % perRow;
     const row = Math.floor(i / perRow);
@@ -741,13 +742,16 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
     doc.setFillColor(250, 250, 250);
     doc.setDrawColor(150);
     doc.rect(x, cy, colW, cardH, "FD");
-    doc.setFontSize(7);
+    let ns = 7;
+    doc.setFontSize(ns);
+    while (ns > 4.6 && doc.getTextWidth(c.name) > colW - 5) { ns -= 0.2; doc.setFontSize(ns); }
     doc.setTextColor(20);
-    doc.text(doc.splitTextToSize(c.name, colW - 5)[0], x + 2.5, cy + 6);
+    doc.text(c.name, x + 2.5, cy + 6);
     doc.setFontSize(6.4);
     doc.text(`${c.type} ${c.phase}${c.phaseAssign ? "/" + c.phaseAssign : ""}`, x + 2.5, cy + 11.5);
     doc.text(`${c.power} W · L=${c.length} m`, x + 2.5, cy + 16.5);
-    doc.text(`In=${c.inBreaker ?? "auto"} A`, x + 2.5, cy + 21.5);
+    const rc = computeCircuit(c, bctx);
+    doc.text(`In=${rc.in} A ${rc.curve} · ${rc.parallel > 1 ? rc.parallel + "×" : ""}${rc.section} mm²`, x + 2.5, cy + 21.5);
   });
   doc.setTextColor(0);
 }
@@ -813,7 +817,7 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
       startY: y + boxH + 2,
       margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
       tableWidth: usableWidth(doc),
-      head: [["#", "Circuito", "Fase", "P", "Protecção", "Secção", "L"]],
+      head: [["#", "Circuito", "Fase", "P (W)", "Protecção", "Secção", "L (m)"]],
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", ""]],
       styles: { ...tableBase(6.5).styles, cellPadding: 1.4 },
       columnStyles: {
