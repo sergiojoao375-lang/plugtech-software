@@ -91,7 +91,17 @@ export default function CalcStudio() {
     } else {
       setCircuits([...panel.circuits, c]);
     }
-    setDraft(emptyDraft());
+    // mantém as últimas selecções (tipo, material, cabo, cenário, fase) para inserção mais rápida
+    setDraft(d => ({
+      ...emptyDraft(),
+      powerUnit: d.powerUnit,
+      cosphi: d.cosphi,
+      type: d.type,
+      cable: d.cable,
+      material: d.material,
+      scenario: d.scenario,
+      phase: d.phase,
+    }));
     setSelectedCircuitId(null);
   }
 
