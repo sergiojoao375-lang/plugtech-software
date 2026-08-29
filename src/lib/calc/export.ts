@@ -23,7 +23,7 @@ const GLYPH_MAP: Array<[RegExp, string]> = [
   [/≈/g, "~"],
   [/ΔU/g, "Queda U"],
   [/Δ/g, "D"],
-  [/φ/g, "fi"],
+  [/φ/g, "phi"],
   [/Ω/g, "ohm"],
   [/→/g, "->"],
   [/[\u2018\u2019]/g, "'"],
@@ -341,7 +341,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       alternateRowStyles: { fillColor: [255, 255, 255] },
 
 
-      head: [["Origem", "Tipo de quadro", "Sistema", "Icc origem", "Icc barramento", "Linha de interligação", "ΔU interligação", "Circuitos"]],
+      head: [["Origem", "Tipo de quadro", "Sistema", "Icc origem", "Icc barramento", "Linha de interligação", "Queda U (%)", "Circuitos"]],
       body: [[
         panel.origin,
         panel.panelKind === "QGE" ? "Quadro Geral (QGE)" : "Quadro de Distribuição (QE)",
@@ -460,8 +460,8 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         4: { cellWidth: 13, halign: "right" },
         5: { cellWidth: 20 },
         6: { cellWidth: 22, halign: "center" },
-        7: { cellWidth: 18 },
-        8: { cellWidth: 42 },
+        7: { cellWidth: 21 },
+        8: { cellWidth: 39 },
       },
 
       didParseCell: (d: any) => {
