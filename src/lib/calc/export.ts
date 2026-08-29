@@ -146,7 +146,7 @@ function sectionTitle(doc: jsPDF, text: string, y: number) {
 function ensureSpace(doc: jsPDF, y: number, needed: number, title: string, logo?: string): number {
   const h = doc.internal.pageSize.getHeight();
   if (y + needed > h - 14) {
-    doc.addPage("a4", "portrait");
+    doc.addPage("a4", "landscape");
     header(doc, title, logo);
     return TOP_MARGIN;
   }
@@ -244,7 +244,7 @@ function childrenOf(panels: Panel[], panel: Panel): Panel[] {
 
 // ============================ RELATÓRIO PRINCIPAL ============================
 export async function exportPDF(panels: Panel[], activeId: string | null, opts?: { logoDataUrl?: string; project?: ProjectInfo }) {
-  const doc = patchText(new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" }));
+  const doc = patchText(new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" }));
   if (!panels.length) return;
   const logo = opts?.logoDataUrl;
 
@@ -270,7 +270,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     startY: y,
     margin: { left: 22, right: 22 },
     alternateRowStyles: { fillColor: [255, 255, 255] },
-    columnStyles: { 0: { fontStyle: "bold", fillColor: [237, 245, 241], textColor: BRAND_GREEN, cellWidth: 62 } },
+    columnStyles: { 0: { fontStyle: "bold", fillColor: [237, 245, 241], textColor: BRAND_GREEN, cellWidth: 91 } },
 
     body: [
       ["Obra", p?.obra || "—"],
@@ -297,7 +297,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   idx.forEach((t, i) => doc.text(t, 14, y + i * 5.5));
 
   // ---------- 1. Critérios ----------
-  doc.addPage("a4", "portrait");
+  doc.addPage("a4", "landscape");
   header(doc, "1. Critérios de Cálculo", logo);
   y = TOP_MARGIN;
   y = sectionTitle(doc, "1. Informação do projecto e critérios de cálculo", y);
@@ -316,7 +316,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   criterios.forEach(t => { y = ensureSpace(doc, y, textHeight(doc, t, 8.5, 4.5), "1. Critérios de Cálculo", logo); y = bullet(doc, t, y); });
 
   // ---------- 2. Diagrama de quadros ----------
-  doc.addPage("a4", "portrait");
+  doc.addPage("a4", "landscape");
   header(doc, "2. Diagrama de Quadros", logo);
   y = TOP_MARGIN;
   y = sectionTitle(doc, "2. Diagrama de quadros — hierarquia de alimentação", y);
@@ -327,7 +327,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   ordered.forEach((panel, pi) => {
     const t = panelTotals(panel);
 
-    doc.addPage("a4", "portrait");
+    doc.addPage("a4", "landscape");
     header(doc, `Quadro ${panel.name}`, logo);
     y = TOP_MARGIN;
     y = sectionTitle(doc, `3.${pi + 1}. Quadro ${panel.name} — dados de alimentação`, y);
@@ -375,20 +375,20 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       head: [["#", "Circuito", "Tipo", "Fase", "P (W)", "Cos φ", "L (m)", "S (VA)", "Ib (A)", "Protecção", "Secção", "Iz (A)", "ΔU %", "Icc kA"]],
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", "", "", "", "", "", "", "", ""]],
       columnStyles: {
-        0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] },
-        1: { fontStyle: "bold", cellWidth: 32 },
-        2: { cellWidth: 15 },
-        3: { cellWidth: 12, halign: "center" },
-        4: { cellWidth: 12, halign: "right" },
-        5: { cellWidth: 10, halign: "right" },
-        6: { cellWidth: 10, halign: "right" },
-        7: { cellWidth: 12, halign: "right" },
-        8: { cellWidth: 11, halign: "right", textColor: BRAND_BLUE },
-        9: { cellWidth: 15, fontStyle: "bold" },
-        10: { cellWidth: 15, fontStyle: "bold", textColor: BRAND_GREEN },
-        11: { cellWidth: 10, halign: "right" },
-        12: { cellWidth: 15, halign: "right", textColor: BRAND_BLUE },
-        13: { cellWidth: 10, halign: "right" },
+        0: { halign: "center", cellWidth: 10.3, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold", cellWidth: 47 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 17.6, halign: "center" },
+        4: { cellWidth: 17.6, halign: "right" },
+        5: { cellWidth: 14.7, halign: "right" },
+        6: { cellWidth: 14.7, halign: "right" },
+        7: { cellWidth: 17.6, halign: "right" },
+        8: { cellWidth: 16.1, halign: "right", textColor: BRAND_BLUE },
+        9: { cellWidth: 22, fontStyle: "bold" },
+        10: { cellWidth: 22, fontStyle: "bold", textColor: BRAND_GREEN },
+        11: { cellWidth: 14.7, halign: "right" },
+        12: { cellWidth: 22, halign: "right", textColor: BRAND_BLUE },
+        13: { cellWidth: 14.7, halign: "right" },
       },
       margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
 
@@ -416,7 +416,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
 
 
     // --------- Selectividade e coordenação deste quadro ---------
-    doc.addPage("a4", "portrait");
+    doc.addPage("a4", "landscape");
     header(doc, `Selectividade — ${panel.name}`, logo);
     y = TOP_MARGIN;
     y = sectionTitle(doc, `4.${pi + 1}. Selectividade e coordenação das protecções — Quadro ${panel.name}`, y);
@@ -453,15 +453,15 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       body: selRows.length ? selRows : [["—", "Sem circuitos", "", "", "", "", "", "", ""]],
       tableWidth: usableWidth(doc),
       columnStyles: {
-        0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] },
-        1: { fontStyle: "bold", cellWidth: 26 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 18, halign: "center" },
-        4: { cellWidth: 13, halign: "right" },
-        5: { cellWidth: 20 },
-        6: { cellWidth: 22, halign: "center" },
-        7: { cellWidth: 21 },
-        8: { cellWidth: 39 },
+        0: { halign: "center", cellWidth: 10.3, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold", cellWidth: 38.2 },
+        2: { cellWidth: 29.4 },
+        3: { cellWidth: 26.4, halign: "center" },
+        4: { cellWidth: 19.1, halign: "right" },
+        5: { cellWidth: 29.4 },
+        6: { cellWidth: 32.3, halign: "center" },
+        7: { cellWidth: 30.8 },
+        8: { cellWidth: 57.2 },
       },
 
       didParseCell: (d: any) => {
@@ -504,13 +504,13 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         headStyles: { ...tableBase(6.6).headStyles, fillColor: BRAND_BLUE },
         tableWidth: usableWidth(doc),
         columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 26 },
-          1: { cellWidth: 20, halign: "center" },
-          2: { cellWidth: 22, halign: "center" },
-          3: { cellWidth: 12, halign: "right" },
-          4: { cellWidth: 22 },
-          5: { cellWidth: 40 },
-          6: { cellWidth: 44 },
+          0: { fontStyle: "bold", cellWidth: 38.2 },
+          1: { cellWidth: 29.4, halign: "center" },
+          2: { cellWidth: 32.3, halign: "center" },
+          3: { cellWidth: 17.6, halign: "right" },
+          4: { cellWidth: 32.3 },
+          5: { cellWidth: 58.7 },
+          6: { cellWidth: 64.6 },
         },
 
         margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
@@ -521,13 +521,13 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     }
 
     // Diagrama de blocos do quadro
-    doc.addPage("a4", "portrait");
+    doc.addPage("a4", "landscape");
     header(doc, `Diagrama de blocos — ${panel.name}`, logo);
     drawBlockDiagram(doc, panel, kids);
   });
 
   // ---------- 6. Materiais globais ----------
-  doc.addPage("a4", "portrait");
+  doc.addPage("a4", "landscape");
   header(doc, "6. Lista Global de Materiais", logo);
   y = sectionTitle(doc, "6. Lista global de materiais (todos os quadros)", TOP_MARGIN);
   const matCables = new Map<string, number>();
@@ -572,7 +572,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
 
 
   // ---------- 7. Assinaturas ----------
-  doc.addPage("a4", "portrait");
+  doc.addPage("a4", "landscape");
   header(doc, "7. Validação Técnica", logo);
   doc.setFillColor(255, 255, 255);
   doc.rect(0, 20, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight() - 30, "F");
@@ -626,7 +626,7 @@ function drawPanelTree(doc: jsPDF, panels: Panel[], startY: number) {
 
   const drawNode = (panel: Panel, depth: number) => {
     if (y + boxH > h - 18) {
-      doc.addPage("a4", "portrait");
+      doc.addPage("a4", "landscape");
       header(doc, "2. Diagrama de Quadros (cont.)");
       y = TOP_MARGIN;
     }
@@ -759,7 +759,7 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
 
 // ===== Diagrama geral em cascata de TODOS os quadros =====
 export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: string; project?: ProjectInfo }) {
-  const doc = patchText(new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" }));
+  const doc = patchText(new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" }));
   if (!panels.length) return;
 
   header(doc, "Diagrama Geral em Cascata", opts?.logoDataUrl);
@@ -784,7 +784,7 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
 
   ordered.forEach((panel, idx) => {
     if (y + boxH + gapY > h - 16) {
-      doc.addPage("a4", "portrait");
+      doc.addPage("a4", "landscape");
       header(doc, "Diagrama Geral em Cascata (cont.)", opts?.logoDataUrl);
       y = TOP_MARGIN;
     }
@@ -821,13 +821,13 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", ""]],
       styles: { ...tableBase(6.5).styles, cellPadding: 1.4 },
       columnStyles: {
-        0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] },
-        1: { fontStyle: "bold", cellWidth: 54 },
-        2: { cellWidth: 18, halign: "center" },
-        3: { cellWidth: 22, halign: "right" },
-        4: { cellWidth: 28 },
-        5: { cellWidth: 30 },
-        6: { cellWidth: 27, halign: "right" },
+        0: { halign: "center", cellWidth: 10.3, textColor: [120, 130, 128] },
+        1: { fontStyle: "bold", cellWidth: 79.3 },
+        2: { cellWidth: 26.4, halign: "center" },
+        3: { cellWidth: 32.3, halign: "right" },
+        4: { cellWidth: 41.1 },
+        5: { cellWidth: 44 },
+        6: { cellWidth: 39.6, halign: "right" },
       },
 
       showHead: "everyPage",
