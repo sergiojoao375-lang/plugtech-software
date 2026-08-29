@@ -476,8 +476,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         }
       },
       margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
-
-
+      rowPageBreak: "avoid",
       showHead: "everyPage",
       didDrawPage: () => header(doc, `Selectividade — ${panel.name}`, logo),
     });
