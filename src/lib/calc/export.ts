@@ -14,6 +14,39 @@ const BRAND_LINE: [number, number, number] = [223, 232, 228];
 const BRAND_BLUE: [number, number, number] = [21, 74, 122];
 
 /** Base comum a todas as tabelas: cabeçalho verde, linhas alternadas, sem grelha pesada. */
+/** Substitui glifos ausentes nas fontes standard do PDF (Helvetica/WinAnsi). */
+const GLYPH_MAP: Array<[RegExp, string]> = [
+  [/√3/g, "raiz(3)"],
+  [/√/g, "raiz"],
+  [/≤/g, "<="],
+  [/≥/g, ">="],
+  [/≈/g, "~"],
+  [/ΔU/g, "Queda U"],
+  [/Δ/g, "D"],
+  [/φ/g, "phi"],
+  [/Ω/g, "ohm"],
+  [/→/g, "->"],
+  [/[\u2018\u2019]/g, "'"],
+  [/[\u201C\u201D]/g, '"'],
+];
+
+function sanitizeText(v: any): any {
+  if (typeof v === "string") {
+    let out = v;
+    for (const [re, rep] of GLYPH_MAP) out = out.replace(re, rep);
+    return out;
+  }
+  if (Array.isArray(v)) return v.map(sanitizeText);
+  return v;
+}
+
+/** Aplica a sanitização a todo o texto escrito no documento (inclui autoTable). */
+function patchText(doc: jsPDF) {
+  const orig = (doc as any).text.bind(doc);
+  (doc as any).text = (text: any, ...rest: any[]) => orig(sanitizeText(text), ...rest);
+  return doc;
+}
+
 function tableBase(fontSize = 7.5) {
   return {
     theme: "striped" as const,
@@ -211,7 +244,7 @@ function childrenOf(panels: Panel[], panel: Panel): Panel[] {
 
 // ============================ RELATÓRIO PRINCIPAL ============================
 export async function exportPDF(panels: Panel[], activeId: string | null, opts?: { logoDataUrl?: string; project?: ProjectInfo }) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc = patchText(new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" }));
   if (!panels.length) return;
   const logo = opts?.logoDataUrl;
 
@@ -308,7 +341,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       alternateRowStyles: { fillColor: [255, 255, 255] },
 
 
-      head: [["Origem", "Tipo de quadro", "Sistema", "Icc origem", "Icc barramento", "Linha de interligação", "ΔU interligação", "Circuitos"]],
+      head: [["Origem", "Tipo de quadro", "Sistema", "Icc origem", "Icc barramento", "Linha de interligação", "Queda U (%)", "Circuitos"]],
       body: [[
         panel.origin,
         panel.panelKind === "QGE" ? "Quadro Geral (QGE)" : "Quadro de Distribuição (QE)",
@@ -333,18 +366,18 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         r.s.toFixed(0), r.ib.toFixed(2), `${r.in}A ${r.curve}`,
         `${r.parallel > 1 ? r.parallel + "×" : ""}${r.section} mm²${c.material === "Al" ? " Al" : ""}`,
         r.iz.toFixed(0), (t.fdU + r.deltaU).toFixed(2) + "%",
-        r.iccTerm.toFixed(2), c.scenario,
+        r.iccTerm.toFixed(2),
       ];
     });
     autoTable(doc, {
       ...tableBase(5.9),
       startY: y,
-      head: [["#", "Circuito", "Tipo", "Fase", "P (W)", "Cos φ", "L (m)", "S (VA)", "Ib (A)", "Protecção", "Secção", "Iz (A)", "ΔU %", "Icc kA", "Instalação"]],
-      body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", "", "", "", "", "", "", "", "", ""]],
+      head: [["#", "Circuito", "Tipo", "Fase", "P (W)", "Cos φ", "L (m)", "S (VA)", "Ib (A)", "Protecção", "Secção", "Iz (A)", "ΔU %", "Icc kA"]],
+      body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", "", "", "", "", "", "", "", ""]],
       columnStyles: {
         0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] },
-        1: { fontStyle: "bold", cellWidth: 26 },
-        2: { cellWidth: 12 },
+        1: { fontStyle: "bold", cellWidth: 32 },
+        2: { cellWidth: 15 },
         3: { cellWidth: 12, halign: "center" },
         4: { cellWidth: 12, halign: "right" },
         5: { cellWidth: 10, halign: "right" },
@@ -354,9 +387,8 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         9: { cellWidth: 15, fontStyle: "bold" },
         10: { cellWidth: 15, fontStyle: "bold", textColor: BRAND_GREEN },
         11: { cellWidth: 10, halign: "right" },
-        12: { cellWidth: 13, halign: "right", textColor: BRAND_BLUE },
-        13: { cellWidth: 11, halign: "right" },
-        14: { cellWidth: 14 },
+        12: { cellWidth: 15, halign: "right", textColor: BRAND_BLUE },
+        13: { cellWidth: 10, halign: "right" },
       },
       margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
 
@@ -428,8 +460,8 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         4: { cellWidth: 13, halign: "right" },
         5: { cellWidth: 20 },
         6: { cellWidth: 22, halign: "center" },
-        7: { cellWidth: 18 },
-        8: { cellWidth: 42 },
+        7: { cellWidth: 21 },
+        8: { cellWidth: 39 },
       },
 
       didParseCell: (d: any) => {
@@ -444,8 +476,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         }
       },
       margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
-
-
+      rowPageBreak: "avoid",
       showHead: "everyPage",
       didDrawPage: () => header(doc, `Selectividade — ${panel.name}`, logo),
     });
@@ -701,6 +732,7 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
   const gap = 4;
   const colW = (full - gap * (perRow - 1)) / perRow;
   const cardH = 24;
+  const bctx = panelTotals(panel).ctx;
   panel.circuits.forEach((c, i) => {
     const col = i % perRow;
     const row = Math.floor(i / perRow);
@@ -710,13 +742,16 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
     doc.setFillColor(250, 250, 250);
     doc.setDrawColor(150);
     doc.rect(x, cy, colW, cardH, "FD");
-    doc.setFontSize(7);
+    let ns = 7;
+    doc.setFontSize(ns);
+    while (ns > 4.6 && doc.getTextWidth(c.name) > colW - 5) { ns -= 0.2; doc.setFontSize(ns); }
     doc.setTextColor(20);
-    doc.text(doc.splitTextToSize(c.name, colW - 5)[0], x + 2.5, cy + 6);
+    doc.text(c.name, x + 2.5, cy + 6);
     doc.setFontSize(6.4);
     doc.text(`${c.type} ${c.phase}${c.phaseAssign ? "/" + c.phaseAssign : ""}`, x + 2.5, cy + 11.5);
     doc.text(`${c.power} W · L=${c.length} m`, x + 2.5, cy + 16.5);
-    doc.text(`In=${c.inBreaker ?? "auto"} A`, x + 2.5, cy + 21.5);
+    const rc = computeCircuit(c, bctx);
+    doc.text(`In=${rc.in} A ${rc.curve} · ${rc.parallel > 1 ? rc.parallel + "×" : ""}${rc.section} mm²`, x + 2.5, cy + 21.5);
   });
   doc.setTextColor(0);
 }
@@ -724,7 +759,7 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
 
 // ===== Diagrama geral em cascata de TODOS os quadros =====
 export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: string; project?: ProjectInfo }) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc = patchText(new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" }));
   if (!panels.length) return;
 
   header(doc, "Diagrama Geral em Cascata", opts?.logoDataUrl);
@@ -782,7 +817,7 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
       startY: y + boxH + 2,
       margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
       tableWidth: usableWidth(doc),
-      head: [["#", "Circuito", "Fase", "P", "Protecção", "Secção", "L"]],
+      head: [["#", "Circuito", "Fase", "P (W)", "Protecção", "Secção", "L (m)"]],
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", ""]],
       styles: { ...tableBase(6.5).styles, cellPadding: 1.4 },
       columnStyles: {
