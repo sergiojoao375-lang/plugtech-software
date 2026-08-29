@@ -343,7 +343,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", "", "", "", "", "", "", "", "", ""]],
       columnStyles: {
         0: { halign: "center", cellWidth: 7, textColor: [120, 130, 128] },
-        1: { fontStyle: "bold", cellWidth: 26 },
+        1: { fontStyle: "bold", cellWidth: 24 },
         2: { cellWidth: 12 },
         3: { cellWidth: 12, halign: "center" },
         4: { cellWidth: 12, halign: "right" },
@@ -356,7 +356,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         11: { cellWidth: 10, halign: "right" },
         12: { cellWidth: 13, halign: "right", textColor: BRAND_BLUE },
         13: { cellWidth: 11, halign: "right" },
-        14: { cellWidth: 14 },
+        14: { cellWidth: 12 },
       },
       margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
 
