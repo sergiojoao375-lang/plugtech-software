@@ -728,7 +728,7 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
   }
 
   // Circuitos
-  const perRow = 4;
+  const perRow = 5;
   const gap = 4;
   const colW = (full - gap * (perRow - 1)) / perRow;
   const cardH = 24;
