@@ -156,7 +156,7 @@ function ensureSpace(doc: jsPDF, y: number, needed: number, title: string, logo?
 const MARGIN = 12;
 
 function usableWidth(doc: jsPDF) {
-  return doc.internal.pageSize.getWidth() - MARGIN * 2;
+  return Math.floor((doc.internal.pageSize.getWidth() - MARGIN * 2) * 10) / 10 - 0.2;
 }
 
 function paragraph(doc: jsPDF, text: string, y: number, size = 8.5): number {
@@ -376,7 +376,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       body: rows.length ? rows : [["—", "Sem circuitos", "", "", "", "", "", "", "", "", "", "", "", ""]],
       columnStyles: {
         0: { halign: "center", cellWidth: 10.3, textColor: [120, 130, 128] },
-        1: { fontStyle: "bold", cellWidth: 47 },
+        1: { fontStyle: "bold", cellWidth: 46.7 },
         2: { cellWidth: 22 },
         3: { cellWidth: 17.6, halign: "center" },
         4: { cellWidth: 17.6, halign: "right" },
@@ -388,7 +388,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         10: { cellWidth: 22, fontStyle: "bold", textColor: BRAND_GREEN },
         11: { cellWidth: 14.7, halign: "right" },
         12: { cellWidth: 22, halign: "right", textColor: BRAND_BLUE },
-        13: { cellWidth: 14.7, halign: "right" },
+        13: { cellWidth: 14.6, halign: "right" },
       },
       margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
 
@@ -461,7 +461,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         5: { cellWidth: 29.4 },
         6: { cellWidth: 32.3, halign: "center" },
         7: { cellWidth: 30.8 },
-        8: { cellWidth: 57.2 },
+        8: { cellWidth: 56.8 },
       },
 
       didParseCell: (d: any) => {
@@ -510,7 +510,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
           3: { cellWidth: 17.6, halign: "right" },
           4: { cellWidth: 32.3 },
           5: { cellWidth: 58.7 },
-          6: { cellWidth: 64.6 },
+          6: { cellWidth: 64.2 },
         },
 
         margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
@@ -827,7 +827,7 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
         3: { cellWidth: 32.3, halign: "right" },
         4: { cellWidth: 41.1 },
         5: { cellWidth: 44 },
-        6: { cellWidth: 39.6, halign: "right" },
+        6: { cellWidth: 39.3, halign: "right" },
       },
 
       showHead: "everyPage",
