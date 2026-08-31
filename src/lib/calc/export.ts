@@ -388,7 +388,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         10: { cellWidth: 22, fontStyle: "bold", textColor: BRAND_GREEN },
         11: { cellWidth: 14.7, halign: "right" },
         12: { cellWidth: 22, halign: "right", textColor: BRAND_BLUE },
-        13: { cellWidth: 14.7, halign: "right" },
+        13: { cellWidth: 14.6, halign: "right" },
       },
       margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
 
