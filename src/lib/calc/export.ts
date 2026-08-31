@@ -156,7 +156,7 @@ function ensureSpace(doc: jsPDF, y: number, needed: number, title: string, logo?
 const MARGIN = 12;
 
 function usableWidth(doc: jsPDF) {
-  return doc.internal.pageSize.getWidth() - MARGIN * 2;
+  return Math.floor((doc.internal.pageSize.getWidth() - MARGIN * 2) * 10) / 10 - 0.2;
 }
 
 function paragraph(doc: jsPDF, text: string, y: number, size = 8.5): number {
