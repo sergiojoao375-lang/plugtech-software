@@ -461,7 +461,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         5: { cellWidth: 29.4 },
         6: { cellWidth: 32.3, halign: "center" },
         7: { cellWidth: 30.8 },
-        8: { cellWidth: 57.2 },
+        8: { cellWidth: 57.1 },
       },
 
       didParseCell: (d: any) => {
@@ -510,7 +510,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
           3: { cellWidth: 17.6, halign: "right" },
           4: { cellWidth: 32.3 },
           5: { cellWidth: 58.7 },
-          6: { cellWidth: 64.6 },
+          6: { cellWidth: 64.5 },
         },
 
         margin: { left: MARGIN, right: MARGIN, top: TOP_MARGIN },
