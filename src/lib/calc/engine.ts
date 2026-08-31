@@ -104,6 +104,7 @@ export function pickMainDevice(currentA: number): number {
 
 export const POWER_FACTOR_LOAD: Record<CircuitType, number> = {
   Iluminacao: 1.0, Tomadas: 1.0, AC: 1.25, Termoacumulador: 1.0, PlacaCozinha: 1.0, UAC: 1.25,
+  QuadroParcial: 1.0,
 };
 
 export interface CalcResult {
@@ -116,6 +117,7 @@ export interface CalcResult {
   iz: number;      // A (Iz total = Iz_secção × paralelos)
   deltaU: number;  // %
   iccTerm: number; // kA
+  icuKA: number;   // poder de corte normalizado exigido (kA)
   modules: number; // módulos DIN
   errors: string[];
   warnings: string[];
