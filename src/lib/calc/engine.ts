@@ -9,7 +9,8 @@ export type CircuitType =
   | "AC"
   | "Termoacumulador"
   | "PlacaCozinha"
-  | "UAC";
+  | "UAC"
+  | "QuadroParcial";
 
 export type InstallScenario =
   | "Enterrado"      // método D
@@ -72,7 +73,17 @@ export function izFor(section: number, scenario: InstallScenario, mat: Material 
 }
 
 // Calibres normalizados de aparelho de corte geral (disjuntor/interruptor) em A
-export const MAIN_DEVICE_RATINGS = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 400, 630, 800, 1000, 1250, 1800, 2000, 2500, 3200];
+export const MAIN_DEVICE_RATINGS = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 400, 630, 800, 1000, 1250, 1600, 1800, 2000, 2500, 3200, 3600, 4000, 5000, 6300];
+
+// Poderes de corte normalizados (Icu/Icn) em kA — IEC 60898-1 / IEC 60947-2
+export const BREAKING_CAPACITIES = [4.5, 6, 10, 15, 25, 36, 50, 70, 100];
+
+/** Escolhe o poder de corte normalizado imediatamente acima do Icc presumido no ponto. */
+export function pickBreakingCapacity(iccKA: number): number {
+  const need = Math.max(0, iccKA);
+  for (const k of BREAKING_CAPACITIES) if (k >= need) return k;
+  return BREAKING_CAPACITIES[BREAKING_CAPACITIES.length - 1];
+}
 
 //export function pickMainDevice(currentA: number): number {
 //  for (const r of MAIN_DEVICE_RATINGS) {
