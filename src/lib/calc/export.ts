@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Panel, ProjectInfo } from "./storage";
-import { computeCircuit, feederDeltaU, phaseImbalance, pickMainDevice, panelIccKA, type FeederContext } from "./engine";
+import { computeCircuit, feederDeltaU, phaseImbalance, pickMainDevice, panelIccKA, effectiveFeeder, type FeederContext } from "./engine";
 
 const FOOTER = "SérgioTech • sergiojoa931@gmail.com • WhatsApp +244 931 728 474 • TECNOLOGIA QUE LIGA SOLUÇÕES";
 const TOP_MARGIN = 24; // espaço reservado ao cabeçalho em todas as páginas
