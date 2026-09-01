@@ -157,11 +157,11 @@ export function computeCircuit(c: Circuit, ctx: FeederContext): CalcResult {
   const mat: Material = c.material ?? "Cu";
   
   // CORREÇÃO DE OURO: Ignora o travamento visual de 10mm² e define o mínimo regulamentar
-  const minSec = c.type === "Iluminacao" ? 1.5 : 2.5;
+  const isFeederCircuit = c.type === "QuadroParcial";
+  const minSec = c.type === "Iluminacao" ? 1.5 : (isFeederCircuit ? 6 : 2.5);
   const sectionList = SECTIONS;
-  //--minha--const breakerList = ctx.isQGE ? STD_BREAKERS_QGE : STD_BREAKERS;
-  const breakerList = STD_BREAKERS;
-  const maxParallel = ctx.isQGE ? 4 : 1;
+  const breakerList = isFeederCircuit ? STD_BREAKERS_QGE : STD_BREAKERS;
+  const maxParallel = (ctx.isQGE || isFeederCircuit) ? 4 : 1;
 
   const targetBreaker = c.inBreaker ?? (breakerList.find(b => b >= ib) || 16);
 
