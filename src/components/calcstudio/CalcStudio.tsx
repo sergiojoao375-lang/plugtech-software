@@ -182,29 +182,8 @@ export default function CalcStudio() {
   // Dimensionamento automático da linha de interligação (secção + paralelos)
   const feederSizing = useMemo(() => {
     if (!panel) return null;
-    const totalIb = panel.circuits.reduce((acc, c) => {
-      const s = c.power / Math.max(0.1, c.cosphi || 1);
-      return acc + (c.phase === "Tri" ? s / (Math.sqrt(3) * panel.voltageTri) : s / panel.voltageMono);
-    }, 0);
-    if (!feederAuto) {
-      return { totalIb, section: panel.feederSection, parallel: Math.max(1, panel.feederParallel ?? 1) };
-    }
-    const minSection = panel.circuits.reduce((m, c) => {
-      const r = computeCircuit(c, {
-        iccOriginKA: panel.iccOriginKA, feederMaterial: panel.feederMaterial,
-        feederSection: panel.feederSection, feederLength: panel.feederLength,
-        feederDeltaU: 0, voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
-        isQGE: panel.panelKind === "QGE",
-      });
-      return Math.max(m, r.section);
-    }, 0);
-    const sized = sizeFeeder({
-      totalCurrentA: totalIb, cosphi: panel.cosphi, length: panel.feederLength,
-      material: panel.feederMaterial, phase: panel.phase,
-      voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
-      minSection,
-    });
-    return { totalIb, section: sized.section, parallel: sized.parallel };
+    const eff = effectiveFeeder(panel);
+    return { totalIb: eff.totalIb, section: eff.section, parallel: eff.parallel };
   }, [panel, feederAuto]);
 
   const ctx: FeederContext | null = useMemo(() => {
