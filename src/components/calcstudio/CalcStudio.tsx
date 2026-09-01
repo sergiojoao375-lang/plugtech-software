@@ -538,13 +538,13 @@ const totals = useMemo(() => {
           <table className="w-full table-fixed text-xs">
             <thead className="sticky top-0 z-10 bg-[color:var(--surface-2)] text-foreground">
               <tr>
-                {["#","Circuito","Tipo","Fase","P(W)","S(VA)","Ib(A)","In(A)","Curva","Secção","Iz(A)","ΔU%","Icc(kA)","Mód","Ações"].map(h =>
+                {["#","Circuito","Tipo","Fase","P(W)","S(VA)","Ib(A)","In(A)","Curva","Secção","Iz(A)","ΔU%","Icc(kA)","PdC(kA)","Mód","Ações"].map(h =>
                   <th key={h} className="border-b border-border px-2 py-2 text-left font-semibold">{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {computed.length === 0 && (
-                <tr><td colSpan={15} className="p-12 text-center text-muted-foreground">Sem circuitos. Adicione um circuito acima ↑</td></tr>
+                <tr><td colSpan={16} className="p-12 text-center text-muted-foreground">Sem circuitos. Adicione um circuito acima ↑</td></tr>
               )}
               {computed.map(({ c, r }, i) => {
                 const hasErr = r.errors.length > 0;
@@ -623,6 +623,7 @@ const totals = useMemo(() => {
                     <td className={`px-2 py-1.5 ${izOver ? "bg-destructive/30 text-destructive font-semibold" : ""}`} title={izOver ? "Cabo em sobrecarga (Ib > Iz)" : undefined}>{r.iz}</td>
                     <td className={`px-2 py-1.5 ${duClass}`} title={`ΔU total ${totalDU.toFixed(2)}% (limite ${c.type === "Iluminacao" ? (isPT ? "6%" : "3%") : (isPT ? "8%" : "5%")})`}>{totalDU.toFixed(2)} %</td>
                     <td className="px-2 py-1.5">{r.iccTerm.toFixed(2)}</td>
+                    <td className="px-2 py-1.5 font-semibold" title="Poder de corte mínimo do disjuntor (Icu/Icn) para o Icc presumido neste ponto">{r.icuKA}</td>
                     <td className="px-2 py-1.5">{r.modules}</td>
                     <td className="px-2 py-1.5">
                       <button onClick={e => { e.stopPropagation(); deleteCircuit(c.id); }}
