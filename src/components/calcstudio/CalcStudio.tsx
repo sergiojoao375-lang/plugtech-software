@@ -444,7 +444,9 @@ const totals = useMemo(() => {
         <div className="border-t border-border bg-[color:var(--surface-1)] px-3 py-2">
           <div className="flex flex-wrap items-end gap-2">
             <Field label="Nome do Circuito" w="180px">
-              <input value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+              <input ref={nameInputRef} autoFocus value={draft.name}
+                onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                onKeyDown={e => { if (e.key === "Enter") addOrUpdateCircuit(); }}
                 className="w-full rounded border border-border bg-[color:var(--surface-2)] px-2 py-1.5 text-sm" placeholder="Ex: Iluminação Sala"/>
             </Field>
             <Field label="Potência" w="140px">
