@@ -626,53 +626,96 @@ function orderPanels(panels: Panel[], activeId: string | null): Panel[] {
   return out;
 }
 
-// Diagrama em árvore dos quadros (quem alimenta quem)
+// Diagrama em árvore dos quadros (quem alimenta quem) — sempre numa única página
 function drawPanelTree(doc: jsPDF, panels: Panel[], startY: number) {
   const roots = panels.filter(p => !panels.some(q => q.name === p.origin && q.id !== p.id));
-  const boxH = 22, gapY = 8, indent = 12;
   const full = usableWidth(doc);
-  let y = startY + 2;
   const h = doc.internal.pageSize.getHeight();
 
-  const drawNode = (panel: Panel, depth: number) => {
-    if (y + boxH > h - 18) {
-      doc.addPage("a4", "landscape");
-      header(doc, "2. Diagrama de Quadros (cont.)");
-      y = TOP_MARGIN;
-    }
-    const d = Math.min(depth, 5);
-    const x = MARGIN + d * indent;
-    const boxW = full - d * indent;
+  // 1) Achatar a árvore
+  const flat: Array<{ panel: Panel; depth: number }> = [];
+  const walk = (p: Panel, depth: number) => {
+    if (flat.some(f => f.panel.id === p.id)) return;
+    flat.push({ panel: p, depth });
+    panels.filter(k => k.origin === p.name && k.id !== p.id).forEach(k => walk(k, depth + 1));
+  };
+  (roots.length ? roots : panels).forEach(r => walk(r, 0));
+  panels.forEach(p => walk(p, 0));
+
+  const noteH = panels.some(p => panels.some(q => q.name === p.origin && q.id !== p.id)) ? 0 : 8;
+  const avail = h - 16 - noteH - (startY + 2);
+  const n = Math.max(1, flat.length);
+
+  // 2) Duas colunas quando há muitos quadros, para caber tudo numa folha
+  const cols = n > 12 ? 2 : 1;
+  const perCol = Math.ceil(n / cols);
+  const colGap = 6;
+  const colW = (full - colGap * (cols - 1)) / cols;
+
+  const slot = avail / perCol;
+  const boxH = Math.max(6, Math.min(22, slot - 2));
+  const gapY = Math.max(1.2, Math.min(8, slot - boxH));
+  const indent = boxH >= 14 ? 10 : 5;
+
+  flat.forEach(({ panel, depth }, i) => {
+    const col = Math.floor(i / perCol);
+    const row = i % perCol;
+    const d = Math.min(depth, 4);
+    const x = MARGIN + col * (colW + colGap) + d * indent;
+    const boxW = colW - d * indent;
+    const y = startY + 2 + row * (boxH + gapY);
     const t = panelTotals(panel);
+
     doc.setDrawColor(20, 80, 60);
     doc.setLineWidth(0.4);
     doc.setFillColor(d === 0 ? 225 : 240, d === 0 ? 245 : 246, d === 0 ? 232 : 252);
     doc.rect(x, y, boxW, boxH, "FD");
     doc.setTextColor(15);
+
+    const nameSize = boxH >= 16 ? 9 : boxH >= 11 ? 7.5 : 6.4;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text(panel.name, x + 3, y + 6);
+    doc.setFontSize(nameSize);
+    doc.text(panel.name, x + 3, y + nameSize * 0.55 + 1.6);
+
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.8);
-    doc.text(`Origem: ${panel.origin}`, x + 3, y + 11);
-    doc.text(`Geral: ${t.mainRating} A · ${panel.phase} · ${panel.circuits.length} circ.`, x + 3, y + 15);
-    doc.text(`Alim.: ${feederLabel(panel)}`, x + 3, y + 19);
+    const info: string[] = [];
+    if (boxH >= 18) {
+      info.push(`Origem: ${panel.origin}`);
+      info.push(`Geral: ${t.mainRating} A · ${panel.phase} · ${panel.circuits.length} circ.`);
+      info.push(`Alim.: ${feederLabel(panel)}`);
+    } else if (boxH >= 13) {
+      info.push(`Origem: ${panel.origin} · Geral ${t.mainRating} A · ${panel.circuits.length} circ.`);
+      info.push(`Alim.: ${feederLabel(panel)}`);
+    } else if (boxH >= 9) {
+      info.push(`Origem: ${panel.origin} · ${t.mainRating} A · ${panel.circuits.length} circ.`);
+    }
+    const infoSize = boxH >= 16 ? 6.8 : 5.6;
+    doc.setFontSize(infoSize);
+    info.forEach((line, li) => {
+      const txt = (doc.splitTextToSize(line, boxW - 6) as string[])[0];
+      doc.text(txt, x + 3, y + nameSize * 0.55 + 1.6 + (li + 1) * (infoSize * 0.72));
+    });
+    if (boxH < 9) {
+      const side = `${panel.origin} → ${t.mainRating} A · ${panel.circuits.length} c.`;
+      doc.setFontSize(5.6);
+      doc.text(side, x + boxW - 3, y + boxH / 2 + 1.4, { align: "right" });
+    }
 
     if (d > 0) {
       doc.setDrawColor(120);
+      doc.setLineWidth(0.25);
       doc.line(x - indent / 2, y - gapY, x - indent / 2, y + boxH / 2);
       doc.line(x - indent / 2, y + boxH / 2, x, y + boxH / 2);
     }
-    y += boxH + gapY;
-    panels.filter(k => k.origin === panel.name && k.id !== panel.id).forEach(k => drawNode(k, depth + 1));
-  };
+  });
 
-  (roots.length ? roots : panels).forEach(r => drawNode(r, 0));
-
-  if (!panels.some(p => panels.some(q => q.name === p.origin && q.id !== p.id))) {
-    paragraph(doc, "Nota: não existem quadros parciais alimentados a partir de outros quadros neste projecto.", y + 4);
+  if (noteH) {
+    paragraph(doc, "Nota: não existem quadros parciais alimentados a partir de outros quadros neste projecto.",
+      startY + 2 + perCol * (boxH + gapY) + 4);
   }
+  doc.setTextColor(0);
 }
+
 
 
 function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
