@@ -652,6 +652,7 @@ const totals = useMemo(() => {
             <KV k={`ΔU total (Máx. ${selected.c.type === "Iluminacao" ? "3%" : "5%"})`} v={`${(ctx!.feederDeltaU + selected.r.deltaU).toFixed(2)} %`} />
 
             <KV k="Icc terminal" v={`${selected.r.iccTerm.toFixed(2)} kA`} />
+            <KV k="Poder de corte (Icu)" v={`≥ ${selected.r.icuKA} kA`} />
             <KV k="Módulos DIN" v={String(selected.r.modules)} />
             <div className="mt-3 space-y-2">
               {selected.r.errors.map((e, i) => (

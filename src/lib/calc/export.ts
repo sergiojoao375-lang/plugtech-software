@@ -410,7 +410,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     y = sectionTitle(doc, "Resumo do quadro", y);
     y = paragraph(doc, `Potência instalada: ${t.totalP.toFixed(0)} W  |  Ib (fase mais carregada): ${t.ibTot.toFixed(1)} A  |  I de dimensionamento (1,25 · Ib): ${t.cutNeed.toFixed(1)} A`, y, 8.5);
     y = paragraph(doc, `Corte geral: ${cutType} — calibre ${t.mainRating} A`, y, 8.5);
-    y = paragraph(doc, `Módulos DIN estimados (reserva 20%): ${modulesTotal}`, y, 8.5);
+    y = paragraph(doc, `Módulos DIN estimados (reserva 30%): ${modulesTotal}`, y, 8.5);
     y = paragraph(doc, `Desequilíbrio de fases: L1 = ${imb.L1.toFixed(0)} W · L2 = ${imb.L2.toFixed(0)} W · L3 = ${imb.L3.toFixed(0)} W  (${imb.pct.toFixed(1)} %)`, y, 8.5);
     y += 4;
 
