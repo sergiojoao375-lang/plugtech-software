@@ -231,30 +231,31 @@ export function computeCircuit(c: Circuit, ctx: FeederContext): CalcResult {
 
   const modules = c.phase === "Tri" ? 3 : (c.type === "AC" || c.type === "UAC" ? 2 : 1);
 
-    //--minha-- Validação normativa europeia de 6 kA (Inserido na linha 205)
-  const breakerBreakingCapacityKA = 6.0; 
-  if (ctx.iccOriginKA > breakerBreakingCapacityKA) {
-    errors.push(
-      `Poder de corte insuficiente: O Icc na origem (${ctx.iccOriginKA.toFixed(1)} kA) excede a capacidade padrão do disjuntor (${breakerBreakingCapacityKA} kA). Utilize aparelhagem de 10 kA ou superior.`
-    );
+  // Poder de corte (Icu/Icn) exigido: normalizado acima do Icc presumido no ponto de instalação.
+  // Actualiza-se automaticamente sempre que o Icc de origem / do barramento do quadro muda.
+  const iccAtDevice = Math.max(iccTerm, 0);
+  const icuKA = pickBreakingCapacity(iccAtDevice);
+  if (icuKA > 25) {
+    warnings.push(`Icc no ponto de instalação de ${iccAtDevice.toFixed(1)} kA: exige aparelhagem com poder de corte >= ${icuKA} kA (ou protecção de retaguarda).`);
   }
 
     // Força circuitos de Placa de Cozinha a usarem no mínimo 4 mm² por razões normativas e térmicas
     // Força circuitos de Placa de Cozinha / Cargas pesadas a começarem com no mínimo 4 mm²
   let finalSection = chosen;
-  if ((c.type === "PlacaCozinha" || c.power > 5000) && finalSection < 4.0) {
+  if ((c.type === "PlacaCozinha" || (c.power > 5000 && !isFeederCircuit)) && finalSection < 4.0) {
     finalSection = 4.0;
     iz = 27; 
   }
 
   // REGRA DE SELETIVIDADE: Trava o Q.Parcial (Q.E.) até 40A e deixa o QGE livre
-  if (!ctx.isQGE && inBreaker > 40) {
+  // (as alimentações de quadros parciais estão isentas deste limite)
+  if (!ctx.isQGE && !isFeederCircuit && inBreaker > 40) {
     errors.push(
       `Calibre incompatível: O disjuntor calculado (${inBreaker}A) excede o limite regulamentar para Quadro Parcial/Distribuição (Máx. 40A). Para potências superiores, dimensione este circuito a partir do Quadro Geral (QGE).`
     );
   }
 
-  return { s, ib, in: inBreaker, curve, section: finalSection, parallel, iz, deltaU, iccTerm, modules, errors, warnings };
+  return { s, ib, in: inBreaker, curve, section: finalSection, parallel, iz, deltaU, iccTerm, icuKA, modules, errors, warnings };
 }
 
 
