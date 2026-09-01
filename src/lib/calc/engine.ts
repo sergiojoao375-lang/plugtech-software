@@ -442,3 +442,65 @@ export function phaseImbalance(circuits: Circuit[]): { L1: number; L2: number; L
   const pct = ((max - min) / avg) * 100;
   return { ...s, pct };
 }
+
+// ---------------------------------------------------------------------------
+// Linha de interligação efectiva de um quadro (secção + condutores em paralelo).
+// Quando o quadro está em modo automático, recalcula com sizeFeeder para que a
+// interface e o relatório usem exactamente o mesmo cabo.
+// ---------------------------------------------------------------------------
+export interface FeederPanelLike {
+  feederMaterial: Material;
+  feederSection: number;
+  feederLength: number;
+  feederAuto?: boolean;
+  feederParallel?: number;
+  iccOriginKA: number;
+  voltageMono: number;
+  voltageTri: number;
+  phase: Phase;
+  cosphi: number;
+  panelKind?: "QE" | "QGE";
+  supplyType?: "PT" | "Rede";
+  circuits: Circuit[];
+}
+
+export function effectiveFeeder(panel: FeederPanelLike): {
+  section: number; parallel: number; totalIb: number; effSection: number; deltaU: number;
+} {
+  const totalIb = panel.circuits.reduce((acc, c) => {
+    const s = c.power / Math.max(0.1, c.cosphi || 1);
+    return acc + (c.phase === "Tri" ? s / (Math.sqrt(3) * panel.voltageTri) : s / panel.voltageMono);
+  }, 0);
+
+  const auto = panel.feederAuto ?? true;
+  let section = panel.feederSection;
+  let parallel = Math.max(1, panel.feederParallel ?? 1);
+
+  if (auto) {
+    const minSection = panel.circuits.reduce((m, c) => {
+      const r = computeCircuit(c, {
+        iccOriginKA: panel.iccOriginKA, feederMaterial: panel.feederMaterial,
+        feederSection: panel.feederSection, feederLength: panel.feederLength,
+        feederDeltaU: 0, voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
+        isQGE: panel.panelKind === "QGE", supplyType: panel.supplyType,
+      });
+      return Math.max(m, r.section * r.parallel);
+    }, 0);
+    const sized = sizeFeeder({
+      totalCurrentA: totalIb, cosphi: panel.cosphi, length: panel.feederLength,
+      material: panel.feederMaterial, phase: panel.phase,
+      voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
+      minSection,
+    });
+    section = sized.section;
+    parallel = sized.parallel;
+  }
+
+  const effSection = section * parallel;
+  const deltaU = feederDeltaU({
+    totalCurrentA: totalIb, cosphi: panel.cosphi, length: panel.feederLength,
+    section: effSection, material: panel.feederMaterial, phase: panel.phase,
+    voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
+  });
+  return { section, parallel, totalIb, effSection, deltaU };
+}
