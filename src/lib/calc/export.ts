@@ -192,11 +192,27 @@ function textHeight(doc: jsPDF, text: string, size = 8.5, indent = 0): number {
 }
 
 
+/** Cabo de interligação efectivamente usado (respeita o modo automático). */
+function feederOf(panel: Panel) {
+  return effectiveFeeder(panel);
+}
+
+/** Descrição textual do cabo de alimentação do quadro. */
+function feederLabel(panel: Panel): string {
+  const f = feederOf(panel);
+  return `${panel.feederMaterial} ${f.parallel > 1 ? f.parallel + "× " : ""}${f.section} mm² · L = ${panel.feederLength} m${(panel.feederAuto ?? true) ? " (auto)" : ""}`;
+}
+
+/** Icc no barramento do quadro, com a secção efectiva do cabo. */
+function busIcc(panel: Panel): number {
+  return panelIccKA({ ...panel, feederSection: feederOf(panel).effSection });
+}
+
 function panelContext(panel: Panel, feederDU: number): FeederContext {
   return {
     iccOriginKA: panel.iccOriginKA,
     feederMaterial: panel.feederMaterial,
-    feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1),
+    feederSection: feederOf(panel).effSection,
     feederLength: panel.feederLength,
     feederDeltaU: feederDU,
     voltageMono: panel.voltageMono,
@@ -207,16 +223,9 @@ function panelContext(panel: Panel, feederDU: number): FeederContext {
 }
 
 function panelTotals(panel: Panel) {
-  const totalIb = panel.circuits.reduce((acc, c) => {
-    const s = c.power / Math.max(0.1, c.cosphi || 1);
-    return acc + (c.phase === "Tri" ? s / (Math.sqrt(3) * panel.voltageTri) : s / panel.voltageMono);
-  }, 0);
-  const fdU = feederDeltaU({
-    totalCurrentA: totalIb, cosphi: panel.cosphi, length: panel.feederLength,
-    section: panel.feederSection * Math.max(1, panel.feederParallel ?? 1),
-    material: panel.feederMaterial, phase: panel.phase,
-    voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
-  });
+  const f = feederOf(panel);
+  const totalIb = f.totalIb;
+  const fdU = f.deltaU;
   const ctx = panelContext(panel, fdU);
 
   const phaseCurrents = { L1: 0, L2: 0, L3: 0 };
@@ -235,7 +244,7 @@ function panelTotals(panel: Panel) {
   const totalP = panel.circuits.reduce((a, c) => a + c.power, 0);
   const cutNeed = ibTot * 1.25;
   const mainRating = pickMainDevice(cutNeed);
-  return { ctx, fdU, totalP, ibTot, cutNeed, mainRating, phaseCurrents };
+  return { ctx, fdU, totalP, ibTot, cutNeed, mainRating, phaseCurrents, feeder: f };
 }
 
 function childrenOf(panels: Panel[], panel: Panel): Panel[] {
