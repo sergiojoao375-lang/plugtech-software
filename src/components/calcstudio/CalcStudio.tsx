@@ -3,7 +3,7 @@ import { LogoST } from "./Logo";
 import {
   type Circuit, type Material, type Phase, type InstallScenario, type CircuitType,
   computeCircuit, feederDeltaU, phaseImbalance, balancePhases, pickMainDevice, panelIccKA,
-  FEEDER_SECTIONS, sizeFeeder, type FeederContext,
+  FEEDER_SECTIONS, effectiveFeeder, type FeederContext,
 } from "@/lib/calc/engine";
 import { loadState, saveState, emptyProject, saveProjectFile, loadProjectFile, type AppState, type Panel, type ProjectInfo } from "@/lib/calc/storage";
 import { exportCSV, exportPDF, exportCascadePDF } from "@/lib/calc/export";
@@ -11,7 +11,7 @@ import { ConduitCalculator } from "./ConduitCalculator";
 import { statusColors, classify, type Status } from "./status";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
-const CIRCUIT_TYPES: CircuitType[] = ["Iluminacao", "Tomadas", "AC", "Termoacumulador", "PlacaCozinha", "UAC"];
+const CIRCUIT_TYPES: CircuitType[] = ["Iluminacao", "Tomadas", "AC", "Termoacumulador", "PlacaCozinha", "UAC", "QuadroParcial"];
 const SCENARIOS: { v: InstallScenario; label: string }[] = [
   { v: "Enterrado", label: "Enterrado no Solo (D)" },
   { v: "Embutido",  label: "Embutido em Parede (A)" },
@@ -750,6 +750,7 @@ function labelType(t: CircuitType) {
   return ({
     Iluminacao: "Iluminação", Tomadas: "Tomadas", AC: "Ar Condicionado",
     Termoacumulador: "Termoacumulador", PlacaCozinha: "Placa Cozinha", UAC: "UAC",
+    QuadroParcial: "Alimentação de Quadro",
   } as Record<CircuitType, string>)[t];
 }
 
