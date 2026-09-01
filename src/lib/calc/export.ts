@@ -341,7 +341,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     y = TOP_MARGIN;
     y = sectionTitle(doc, `3.${pi + 1}. Quadro ${panel.name} — dados de alimentação`, y);
 
-    const feederDesc = `${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? (panel.feederParallel + "× ") : ""}${panel.feederSection} mm² · L = ${panel.feederLength} m${panel.feederAuto ? " (secção automática)" : ""}`;
+    const feederDesc = feederLabel(panel);
     autoTable(doc, {
       ...tableBase(6.6),
       startY: y,
@@ -356,7 +356,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         panel.panelKind === "QGE" ? "Quadro Geral (QGE)" : "Quadro de Distribuição (QE)",
         panel.phase === "Tri" ? `Trifásico ${panel.voltageTri} V` : `Monofásico ${panel.voltageMono} V`,
         `${panel.iccOriginKA} kA`,
-        `${panelIccKA({ ...panel, feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1) }).toFixed(1)} kA`,
+        `${busIcc(panel).toFixed(1)} kA`,
         feederDesc,
         `${t.fdU.toFixed(2)} %`,
         String(panel.circuits.length),
@@ -440,7 +440,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     ].forEach(t2 => { y = ensureSpace(doc, y, textHeight(doc, t2, 8.5, 4.5), `Selectividade — ${panel.name}`, logo); y = bullet(doc, t2, y); });
     y += 1;
     y = ensureSpace(doc, y, 20, `Selectividade — ${panel.name}`, logo);
-    y = paragraph(doc, `Coordenação neste quadro: o aparelho geral tem calibre ${t.mainRating} A e o barramento apresenta uma corrente de curto-circuito presumida de ${panelIccKA({ ...panel, feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1) }).toFixed(1)} kA, pelo que todos os aparelhos instalados devem ter poder de corte (Icu/Icn) igual ou superior a esse valor, ou ser objecto de protecção de retaguarda (back-up) pelo aparelho geral. Verifica-se ainda, para cada circuito, a condição Ib ≤ In ≤ Iz.`, y);
+    y = paragraph(doc, `Coordenação neste quadro: o aparelho geral tem calibre ${t.mainRating} A e o barramento apresenta uma corrente de curto-circuito presumida de ${busIcc(panel).toFixed(1)} kA, pelo que todos os aparelhos instalados devem ter poder de corte (Icu/Icn) igual ou superior a esse valor, ou ser objecto de protecção de retaguarda (back-up) pelo aparelho geral. Verifica-se ainda, para cada circuito, a condição Ib ≤ In ≤ Iz.`, y);
     y += 2;
 
     const selRows = panel.circuits.map((c, i) => {
@@ -502,7 +502,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         const ratio = kt.mainRating > 0 ? t.mainRating / kt.mainRating : 0;
         const sel = ratio >= 2 ? "Total" : ratio >= 1.6 ? "Parcial" : "Não assegurada";
         return [k.name, `${kt.mainRating} A`, `${t.mainRating} A`, ratio.toFixed(2), sel,
-          `${k.feederMaterial} ${(k.feederParallel ?? 1) > 1 ? k.feederParallel + "× " : ""}${k.feederSection} mm² · ${k.feederLength} m`,
+          feederLabel(k),
           ratio >= 2 ? "Discriminação assegurada em sobrecarga." : "Recomenda-se aparelho geral selectivo (curva S / temporizado)."];
       });
       autoTable(doc, {
@@ -551,8 +551,9 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       const b = `Disjuntor ${r.in}A Curva ${r.curve} (${c.phase})`;
       matBreakers.set(b, (matBreakers.get(b) || 0) + 1);
     });
-    const par = Math.max(1, panel.feederParallel ?? 1);
-    const fk = `${panel.feederMaterial} ${par > 1 ? par + "×" : ""}${panel.feederSection}mm² (interligação)`;
+    const fEff = feederOf(panel);
+    const par = fEff.parallel;
+    const fk = `${panel.feederMaterial} ${par > 1 ? par + "×" : ""}${fEff.section}mm² (interligação)`;
     matCables.set(fk, (matCables.get(fk) || 0) + panel.feederLength * par);
     const gk = `Aparelho de corte geral ${t.mainRating}A (${panel.name})`;
     matBreakers.set(gk, (matBreakers.get(gk) || 0) + 1);
@@ -655,7 +656,7 @@ function drawPanelTree(doc: jsPDF, panels: Panel[], startY: number) {
     doc.setFontSize(6.8);
     doc.text(`Origem: ${panel.origin}`, x + 3, y + 11);
     doc.text(`Geral: ${t.mainRating} A · ${panel.phase} · ${panel.circuits.length} circ.`, x + 3, y + 15);
-    doc.text(`Alim.: ${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? panel.feederParallel + "× " : ""}${panel.feederSection} mm² · ${panel.feederLength} m`, x + 3, y + 19);
+    doc.text(`Alim.: ${feederLabel(panel)}`, x + 3, y + 19);
 
     if (d > 0) {
       doc.setDrawColor(120);
@@ -701,7 +702,7 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
   doc.setDrawColor(20, 80, 60);
   doc.line(cx, y, cx, y + 16);
   doc.setFontSize(7.5);
-  doc.text(`Cabo ${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? panel.feederParallel + "× " : ""}${panel.feederSection} mm² · L = ${panel.feederLength} m`, cx + 4, y + 9);
+  doc.text(`Cabo ${feederLabel(panel)}`, cx + 4, y + 9);
   y += 16;
 
   // Quadro
@@ -714,7 +715,7 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   doc.text(`Geral ${t.mainRating} A · ${panel.circuits.length} circuitos`, cx, y + 16, { align: "center" });
-  doc.text(`Icc barramento: ${panelIccKA({ ...panel, feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1) }).toFixed(1)} kA`, cx, y + 22, { align: "center" });
+  doc.text(`Icc barramento: ${busIcc(panel).toFixed(1)} kA`, cx, y + 22, { align: "center" });
   y += qH + 6;
 
   // Quadros parciais alimentados
@@ -813,7 +814,7 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
 
     const t = panelTotals(panel);
     doc.text(`Corte geral: ${t.cutNeed > 100 ? "Fusíveis gG" : "Interruptor"} ${t.mainRating} A`, leftX + 4, y + 21);
-    doc.text(`Interligação: ${panel.feederMaterial} ${panel.feederSection} mm² · L = ${panel.feederLength} m`, leftX + 100, y + 21);
+    doc.text(`Interligação: ${feederLabel(panel)}`, leftX + 100, y + 21);
     doc.setTextColor(0);
 
     const rows = panel.circuits.map((c, i) => {
@@ -856,7 +857,7 @@ export function exportCSV(panel: Panel) {
   const sep = ";";
   const ctx: FeederContext = {
     iccOriginKA: panel.iccOriginKA, feederMaterial: panel.feederMaterial,
-    feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1),
+    feederSection: feederOf(panel).effSection,
     feederLength: panel.feederLength,
     feederDeltaU: 0, voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
     isQGE: panel.panelKind === "QGE",
@@ -879,7 +880,7 @@ export function exportCSV(panel: Panel) {
   lines.push(`Sistema${sep}${panel.phase === "Tri" ? "Trifasico 400V" : "Monofasico 230V"}`);
   lines.push(`Icc origem (kA)${sep}${panel.iccOriginKA}`);
   lines.push(`Icc barramento (kA)${sep}${panelIccKA(panel).toFixed(1).replace(".", ",")}`);
-  lines.push(`Cabo interligação${sep}${panel.feederMaterial} ${panel.feederSection}mm² x ${panel.feederLength}m`);
+  lines.push(`Cabo interligação${sep}${panel.feederMaterial} ${feederOf(panel).parallel > 1 ? feederOf(panel).parallel + "x" : ""}${feederOf(panel).section}mm² x ${panel.feederLength}m`);
 
   const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
