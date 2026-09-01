@@ -246,7 +246,7 @@ const totals = useMemo(() => {
   const ib = Math.max(phaseCurrents.L1, phaseCurrents.L2, phaseCurrents.L3);
 
     const cutNeed = ib * 1.25;
-    const modules = Math.ceil((panel.circuits.reduce((a, c) => a + (c.phase === "Tri" ? 3 : 2), 4)) * 1.2);
+    const modules = Math.ceil((panel.circuits.reduce((a, c) => a + (c.phase === "Tri" ? 3 : 2), 4)) * 1.3);
     const mainRating = pickMainDevice(cutNeed);
     const device = cutNeed > 100 ? "Fusíveis gG" : "Interruptor";
     const cut = `${device} ${mainRating}A`;
@@ -691,7 +691,7 @@ const totals = useMemo(() => {
           })()} A`} />
           <Stat label="I dimens. (×1.25)" value={`${totals.cutNeed.toFixed(1)} A`} />
           <Stat label="Corte Geral" value={totals.cut} accent />
-          <Stat label="Módulos DIN (+20%)" value={String(totals.modules)} />
+          <Stat label="Módulos DIN (+30%)" value={String(totals.modules)} />
         </div>
         {imb && (
           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">

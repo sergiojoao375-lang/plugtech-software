@@ -404,7 +404,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     // Resumo do quadro
     const cutType = t.cutNeed > 100 ? "Fusíveis (gG)" : "Interruptor de Corte em Carga";
     const modules = panel.circuits.reduce((a, c) => a + (c.phase === "Tri" ? 3 : 2), 4);
-    const modulesTotal = Math.ceil(modules * 1.2);
+    const modulesTotal = Math.ceil(modules * 1.3);
     const imb = phaseImbalance(panel.circuits);
     y = ensureSpace(doc, y, 40, `Quadro ${panel.name} — resumo`, logo);
     y = sectionTitle(doc, "Resumo do quadro", y);
