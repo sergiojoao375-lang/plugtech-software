@@ -3,7 +3,7 @@ import { LogoST } from "./Logo";
 import {
   type Circuit, type Material, type Phase, type InstallScenario, type CircuitType,
   computeCircuit, feederDeltaU, phaseImbalance, balancePhases, pickMainDevice, panelIccKA,
-  FEEDER_SECTIONS, sizeFeeder, type FeederContext,
+  FEEDER_SECTIONS, effectiveFeeder, type FeederContext,
 } from "@/lib/calc/engine";
 import { loadState, saveState, emptyProject, saveProjectFile, loadProjectFile, type AppState, type Panel, type ProjectInfo } from "@/lib/calc/storage";
 import { exportCSV, exportPDF, exportCascadePDF } from "@/lib/calc/export";
@@ -11,7 +11,7 @@ import { ConduitCalculator } from "./ConduitCalculator";
 import { statusColors, classify, type Status } from "./status";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
-const CIRCUIT_TYPES: CircuitType[] = ["Iluminacao", "Tomadas", "AC", "Termoacumulador", "PlacaCozinha", "UAC"];
+const CIRCUIT_TYPES: CircuitType[] = ["Iluminacao", "Tomadas", "AC", "Termoacumulador", "PlacaCozinha", "UAC", "QuadroParcial"];
 const SCENARIOS: { v: InstallScenario; label: string }[] = [
   { v: "Enterrado", label: "Enterrado no Solo (D)" },
   { v: "Embutido",  label: "Embutido em Parede (A)" },
@@ -50,6 +50,8 @@ export default function CalcStudio() {
   const [showObra, setShowObra] = useState(false);
   const [showConduit, setShowConduit] = useState(false);
   const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>();
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const focusName = () => requestAnimationFrame(() => { nameInputRef.current?.focus(); nameInputRef.current?.select(); });
 
   useEffect(() => { setState(loadState()); }, []);
   useEffect(() => { if (state.panels.length) saveState(state); }, [state]);
@@ -103,6 +105,7 @@ export default function CalcStudio() {
       phase: d.phase,
     }));
     setSelectedCircuitId(null);
+    focusName();
   }
 
   function editCircuit(c: Circuit) {
@@ -182,29 +185,8 @@ export default function CalcStudio() {
   // Dimensionamento automático da linha de interligação (secção + paralelos)
   const feederSizing = useMemo(() => {
     if (!panel) return null;
-    const totalIb = panel.circuits.reduce((acc, c) => {
-      const s = c.power / Math.max(0.1, c.cosphi || 1);
-      return acc + (c.phase === "Tri" ? s / (Math.sqrt(3) * panel.voltageTri) : s / panel.voltageMono);
-    }, 0);
-    if (!feederAuto) {
-      return { totalIb, section: panel.feederSection, parallel: Math.max(1, panel.feederParallel ?? 1) };
-    }
-    const minSection = panel.circuits.reduce((m, c) => {
-      const r = computeCircuit(c, {
-        iccOriginKA: panel.iccOriginKA, feederMaterial: panel.feederMaterial,
-        feederSection: panel.feederSection, feederLength: panel.feederLength,
-        feederDeltaU: 0, voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
-        isQGE: panel.panelKind === "QGE",
-      });
-      return Math.max(m, r.section);
-    }, 0);
-    const sized = sizeFeeder({
-      totalCurrentA: totalIb, cosphi: panel.cosphi, length: panel.feederLength,
-      material: panel.feederMaterial, phase: panel.phase,
-      voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
-      minSection,
-    });
-    return { totalIb, section: sized.section, parallel: sized.parallel };
+    const eff = effectiveFeeder(panel);
+    return { totalIb: eff.totalIb, section: eff.section, parallel: eff.parallel };
   }, [panel, feederAuto]);
 
   const ctx: FeederContext | null = useMemo(() => {
@@ -264,7 +246,7 @@ const totals = useMemo(() => {
   const ib = Math.max(phaseCurrents.L1, phaseCurrents.L2, phaseCurrents.L3);
 
     const cutNeed = ib * 1.25;
-    const modules = Math.ceil((panel.circuits.reduce((a, c) => a + (c.phase === "Tri" ? 3 : 2), 4)) * 1.2);
+    const modules = Math.ceil((panel.circuits.reduce((a, c) => a + (c.phase === "Tri" ? 3 : 2), 4)) * 1.3);
     const mainRating = pickMainDevice(cutNeed);
     const device = cutNeed > 100 ? "Fusíveis gG" : "Interruptor";
     const cut = `${device} ${mainRating}A`;
@@ -462,7 +444,9 @@ const totals = useMemo(() => {
         <div className="border-t border-border bg-[color:var(--surface-1)] px-3 py-2">
           <div className="flex flex-wrap items-end gap-2">
             <Field label="Nome do Circuito" w="180px">
-              <input value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+              <input ref={nameInputRef} autoFocus value={draft.name}
+                onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                onKeyDown={e => { if (e.key === "Enter") addOrUpdateCircuit(); }}
                 className="w-full rounded border border-border bg-[color:var(--surface-2)] px-2 py-1.5 text-sm" placeholder="Ex: Iluminação Sala"/>
             </Field>
             <Field label="Potência" w="140px">
@@ -554,13 +538,13 @@ const totals = useMemo(() => {
           <table className="w-full table-fixed text-xs">
             <thead className="sticky top-0 z-10 bg-[color:var(--surface-2)] text-foreground">
               <tr>
-                {["#","Circuito","Tipo","Fase","P(W)","S(VA)","Ib(A)","In(A)","Curva","Secção","Iz(A)","ΔU%","Icc(kA)","Mód","Ações"].map(h =>
+                {["#","Circuito","Tipo","Fase","P(W)","S(VA)","Ib(A)","In(A)","Curva","Secção","Iz(A)","ΔU%","Icc(kA)","PdC(kA)","Mód","Ações"].map(h =>
                   <th key={h} className="border-b border-border px-2 py-2 text-left font-semibold">{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {computed.length === 0 && (
-                <tr><td colSpan={15} className="p-12 text-center text-muted-foreground">Sem circuitos. Adicione um circuito acima ↑</td></tr>
+                <tr><td colSpan={16} className="p-12 text-center text-muted-foreground">Sem circuitos. Adicione um circuito acima ↑</td></tr>
               )}
               {computed.map(({ c, r }, i) => {
                 const hasErr = r.errors.length > 0;
@@ -639,6 +623,7 @@ const totals = useMemo(() => {
                     <td className={`px-2 py-1.5 ${izOver ? "bg-destructive/30 text-destructive font-semibold" : ""}`} title={izOver ? "Cabo em sobrecarga (Ib > Iz)" : undefined}>{r.iz}</td>
                     <td className={`px-2 py-1.5 ${duClass}`} title={`ΔU total ${totalDU.toFixed(2)}% (limite ${c.type === "Iluminacao" ? (isPT ? "6%" : "3%") : (isPT ? "8%" : "5%")})`}>{totalDU.toFixed(2)} %</td>
                     <td className="px-2 py-1.5">{r.iccTerm.toFixed(2)}</td>
+                    <td className="px-2 py-1.5 font-semibold" title="Poder de corte mínimo do disjuntor (Icu/Icn) para o Icc presumido neste ponto">{r.icuKA}</td>
                     <td className="px-2 py-1.5">{r.modules}</td>
                     <td className="px-2 py-1.5">
                       <button onClick={e => { e.stopPropagation(); deleteCircuit(c.id); }}
@@ -668,6 +653,7 @@ const totals = useMemo(() => {
             <KV k={`ΔU total (Máx. ${selected.c.type === "Iluminacao" ? "3%" : "5%"})`} v={`${(ctx!.feederDeltaU + selected.r.deltaU).toFixed(2)} %`} />
 
             <KV k="Icc terminal" v={`${selected.r.iccTerm.toFixed(2)} kA`} />
+            <KV k="Poder de corte (Icu)" v={`≥ ${selected.r.icuKA} kA`} />
             <KV k="Módulos DIN" v={String(selected.r.modules)} />
             <div className="mt-3 space-y-2">
               {selected.r.errors.map((e, i) => (
@@ -707,7 +693,7 @@ const totals = useMemo(() => {
           })()} A`} />
           <Stat label="I dimens. (×1.25)" value={`${totals.cutNeed.toFixed(1)} A`} />
           <Stat label="Corte Geral" value={totals.cut} accent />
-          <Stat label="Módulos DIN (+20%)" value={String(totals.modules)} />
+          <Stat label="Módulos DIN (+30%)" value={String(totals.modules)} />
         </div>
         {imb && (
           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
@@ -750,6 +736,7 @@ function labelType(t: CircuitType) {
   return ({
     Iluminacao: "Iluminação", Tomadas: "Tomadas", AC: "Ar Condicionado",
     Termoacumulador: "Termoacumulador", PlacaCozinha: "Placa Cozinha", UAC: "UAC",
+    QuadroParcial: "Alimentação de Quadro",
   } as Record<CircuitType, string>)[t];
 }
 

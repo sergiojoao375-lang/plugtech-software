@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Panel, ProjectInfo } from "./storage";
-import { computeCircuit, feederDeltaU, phaseImbalance, pickMainDevice, panelIccKA, type FeederContext } from "./engine";
+import { computeCircuit, feederDeltaU, phaseImbalance, pickMainDevice, panelIccKA, effectiveFeeder, type FeederContext } from "./engine";
 
 const FOOTER = "SérgioTech • sergiojoa931@gmail.com • WhatsApp +244 931 728 474 • TECNOLOGIA QUE LIGA SOLUÇÕES";
 const TOP_MARGIN = 24; // espaço reservado ao cabeçalho em todas as páginas
@@ -192,11 +192,27 @@ function textHeight(doc: jsPDF, text: string, size = 8.5, indent = 0): number {
 }
 
 
+/** Cabo de interligação efectivamente usado (respeita o modo automático). */
+function feederOf(panel: Panel) {
+  return effectiveFeeder(panel);
+}
+
+/** Descrição textual do cabo de alimentação do quadro. */
+function feederLabel(panel: Panel): string {
+  const f = feederOf(panel);
+  return `${panel.feederMaterial} ${f.parallel > 1 ? f.parallel + "× " : ""}${f.section} mm² · L = ${panel.feederLength} m${(panel.feederAuto ?? true) ? " (auto)" : ""}`;
+}
+
+/** Icc no barramento do quadro, com a secção efectiva do cabo. */
+function busIcc(panel: Panel): number {
+  return panelIccKA({ ...panel, feederSection: feederOf(panel).effSection });
+}
+
 function panelContext(panel: Panel, feederDU: number): FeederContext {
   return {
     iccOriginKA: panel.iccOriginKA,
     feederMaterial: panel.feederMaterial,
-    feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1),
+    feederSection: feederOf(panel).effSection,
     feederLength: panel.feederLength,
     feederDeltaU: feederDU,
     voltageMono: panel.voltageMono,
@@ -207,16 +223,9 @@ function panelContext(panel: Panel, feederDU: number): FeederContext {
 }
 
 function panelTotals(panel: Panel) {
-  const totalIb = panel.circuits.reduce((acc, c) => {
-    const s = c.power / Math.max(0.1, c.cosphi || 1);
-    return acc + (c.phase === "Tri" ? s / (Math.sqrt(3) * panel.voltageTri) : s / panel.voltageMono);
-  }, 0);
-  const fdU = feederDeltaU({
-    totalCurrentA: totalIb, cosphi: panel.cosphi, length: panel.feederLength,
-    section: panel.feederSection * Math.max(1, panel.feederParallel ?? 1),
-    material: panel.feederMaterial, phase: panel.phase,
-    voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
-  });
+  const f = feederOf(panel);
+  const totalIb = f.totalIb;
+  const fdU = f.deltaU;
   const ctx = panelContext(panel, fdU);
 
   const phaseCurrents = { L1: 0, L2: 0, L3: 0 };
@@ -235,7 +244,7 @@ function panelTotals(panel: Panel) {
   const totalP = panel.circuits.reduce((a, c) => a + c.power, 0);
   const cutNeed = ibTot * 1.25;
   const mainRating = pickMainDevice(cutNeed);
-  return { ctx, fdU, totalP, ibTot, cutNeed, mainRating, phaseCurrents };
+  return { ctx, fdU, totalP, ibTot, cutNeed, mainRating, phaseCurrents, feeder: f };
 }
 
 function childrenOf(panels: Panel[], panel: Panel): Panel[] {
@@ -332,7 +341,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     y = TOP_MARGIN;
     y = sectionTitle(doc, `3.${pi + 1}. Quadro ${panel.name} — dados de alimentação`, y);
 
-    const feederDesc = `${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? (panel.feederParallel + "× ") : ""}${panel.feederSection} mm² · L = ${panel.feederLength} m${panel.feederAuto ? " (secção automática)" : ""}`;
+    const feederDesc = feederLabel(panel);
     autoTable(doc, {
       ...tableBase(6.6),
       startY: y,
@@ -347,7 +356,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         panel.panelKind === "QGE" ? "Quadro Geral (QGE)" : "Quadro de Distribuição (QE)",
         panel.phase === "Tri" ? `Trifásico ${panel.voltageTri} V` : `Monofásico ${panel.voltageMono} V`,
         `${panel.iccOriginKA} kA`,
-        `${panelIccKA({ ...panel, feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1) }).toFixed(1)} kA`,
+        `${busIcc(panel).toFixed(1)} kA`,
         feederDesc,
         `${t.fdU.toFixed(2)} %`,
         String(panel.circuits.length),
@@ -404,13 +413,13 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     // Resumo do quadro
     const cutType = t.cutNeed > 100 ? "Fusíveis (gG)" : "Interruptor de Corte em Carga";
     const modules = panel.circuits.reduce((a, c) => a + (c.phase === "Tri" ? 3 : 2), 4);
-    const modulesTotal = Math.ceil(modules * 1.2);
+    const modulesTotal = Math.ceil(modules * 1.3);
     const imb = phaseImbalance(panel.circuits);
     y = ensureSpace(doc, y, 40, `Quadro ${panel.name} — resumo`, logo);
     y = sectionTitle(doc, "Resumo do quadro", y);
     y = paragraph(doc, `Potência instalada: ${t.totalP.toFixed(0)} W  |  Ib (fase mais carregada): ${t.ibTot.toFixed(1)} A  |  I de dimensionamento (1,25 · Ib): ${t.cutNeed.toFixed(1)} A`, y, 8.5);
     y = paragraph(doc, `Corte geral: ${cutType} — calibre ${t.mainRating} A`, y, 8.5);
-    y = paragraph(doc, `Módulos DIN estimados (reserva 20%): ${modulesTotal}`, y, 8.5);
+    y = paragraph(doc, `Módulos DIN estimados (reserva 30%): ${modulesTotal}`, y, 8.5);
     y = paragraph(doc, `Desequilíbrio de fases: L1 = ${imb.L1.toFixed(0)} W · L2 = ${imb.L2.toFixed(0)} W · L3 = ${imb.L3.toFixed(0)} W  (${imb.pct.toFixed(1)} %)`, y, 8.5);
     y += 4;
 
@@ -431,7 +440,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
     ].forEach(t2 => { y = ensureSpace(doc, y, textHeight(doc, t2, 8.5, 4.5), `Selectividade — ${panel.name}`, logo); y = bullet(doc, t2, y); });
     y += 1;
     y = ensureSpace(doc, y, 20, `Selectividade — ${panel.name}`, logo);
-    y = paragraph(doc, `Coordenação neste quadro: o aparelho geral tem calibre ${t.mainRating} A e o barramento apresenta uma corrente de curto-circuito presumida de ${panelIccKA({ ...panel, feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1) }).toFixed(1)} kA, pelo que todos os aparelhos instalados devem ter poder de corte (Icu/Icn) igual ou superior a esse valor, ou ser objecto de protecção de retaguarda (back-up) pelo aparelho geral. Verifica-se ainda, para cada circuito, a condição Ib ≤ In ≤ Iz.`, y);
+    y = paragraph(doc, `Coordenação neste quadro: o aparelho geral tem calibre ${t.mainRating} A e o barramento apresenta uma corrente de curto-circuito presumida de ${busIcc(panel).toFixed(1)} kA, pelo que todos os aparelhos instalados devem ter poder de corte (Icu/Icn) igual ou superior a esse valor, ou ser objecto de protecção de retaguarda (back-up) pelo aparelho geral. Verifica-se ainda, para cada circuito, a condição Ib ≤ In ≤ Iz.`, y);
     y += 2;
 
     const selRows = panel.circuits.map((c, i) => {
@@ -493,7 +502,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         const ratio = kt.mainRating > 0 ? t.mainRating / kt.mainRating : 0;
         const sel = ratio >= 2 ? "Total" : ratio >= 1.6 ? "Parcial" : "Não assegurada";
         return [k.name, `${kt.mainRating} A`, `${t.mainRating} A`, ratio.toFixed(2), sel,
-          `${k.feederMaterial} ${(k.feederParallel ?? 1) > 1 ? k.feederParallel + "× " : ""}${k.feederSection} mm² · ${k.feederLength} m`,
+          feederLabel(k),
           ratio >= 2 ? "Discriminação assegurada em sobrecarga." : "Recomenda-se aparelho geral selectivo (curva S / temporizado)."];
       });
       autoTable(doc, {
@@ -542,8 +551,9 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       const b = `Disjuntor ${r.in}A Curva ${r.curve} (${c.phase})`;
       matBreakers.set(b, (matBreakers.get(b) || 0) + 1);
     });
-    const par = Math.max(1, panel.feederParallel ?? 1);
-    const fk = `${panel.feederMaterial} ${par > 1 ? par + "×" : ""}${panel.feederSection}mm² (interligação)`;
+    const fEff = feederOf(panel);
+    const par = fEff.parallel;
+    const fk = `${panel.feederMaterial} ${par > 1 ? par + "×" : ""}${fEff.section}mm² (interligação)`;
     matCables.set(fk, (matCables.get(fk) || 0) + panel.feederLength * par);
     const gk = `Aparelho de corte geral ${t.mainRating}A (${panel.name})`;
     matBreakers.set(gk, (matBreakers.get(gk) || 0) + 1);
@@ -616,53 +626,96 @@ function orderPanels(panels: Panel[], activeId: string | null): Panel[] {
   return out;
 }
 
-// Diagrama em árvore dos quadros (quem alimenta quem)
+// Diagrama em árvore dos quadros (quem alimenta quem) — sempre numa única página
 function drawPanelTree(doc: jsPDF, panels: Panel[], startY: number) {
   const roots = panels.filter(p => !panels.some(q => q.name === p.origin && q.id !== p.id));
-  const boxH = 22, gapY = 8, indent = 12;
   const full = usableWidth(doc);
-  let y = startY + 2;
   const h = doc.internal.pageSize.getHeight();
 
-  const drawNode = (panel: Panel, depth: number) => {
-    if (y + boxH > h - 18) {
-      doc.addPage("a4", "landscape");
-      header(doc, "2. Diagrama de Quadros (cont.)");
-      y = TOP_MARGIN;
-    }
-    const d = Math.min(depth, 5);
-    const x = MARGIN + d * indent;
-    const boxW = full - d * indent;
+  // 1) Achatar a árvore
+  const flat: Array<{ panel: Panel; depth: number }> = [];
+  const walk = (p: Panel, depth: number) => {
+    if (flat.some(f => f.panel.id === p.id)) return;
+    flat.push({ panel: p, depth });
+    panels.filter(k => k.origin === p.name && k.id !== p.id).forEach(k => walk(k, depth + 1));
+  };
+  (roots.length ? roots : panels).forEach(r => walk(r, 0));
+  panels.forEach(p => walk(p, 0));
+
+  const noteH = panels.some(p => panels.some(q => q.name === p.origin && q.id !== p.id)) ? 0 : 8;
+  const avail = h - 16 - noteH - (startY + 2);
+  const n = Math.max(1, flat.length);
+
+  // 2) Duas colunas quando há muitos quadros, para caber tudo numa folha
+  const cols = n > 12 ? 2 : 1;
+  const perCol = Math.ceil(n / cols);
+  const colGap = 6;
+  const colW = (full - colGap * (cols - 1)) / cols;
+
+  const slot = avail / perCol;
+  const boxH = Math.max(6, Math.min(22, slot - 2));
+  const gapY = Math.max(1.2, Math.min(8, slot - boxH));
+  const indent = boxH >= 14 ? 10 : 5;
+
+  flat.forEach(({ panel, depth }, i) => {
+    const col = Math.floor(i / perCol);
+    const row = i % perCol;
+    const d = Math.min(depth, 4);
+    const x = MARGIN + col * (colW + colGap) + d * indent;
+    const boxW = colW - d * indent;
+    const y = startY + 2 + row * (boxH + gapY);
     const t = panelTotals(panel);
+
     doc.setDrawColor(20, 80, 60);
     doc.setLineWidth(0.4);
     doc.setFillColor(d === 0 ? 225 : 240, d === 0 ? 245 : 246, d === 0 ? 232 : 252);
     doc.rect(x, y, boxW, boxH, "FD");
     doc.setTextColor(15);
+
+    const nameSize = boxH >= 16 ? 9 : boxH >= 11 ? 7.5 : 6.4;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text(panel.name, x + 3, y + 6);
+    doc.setFontSize(nameSize);
+    doc.text(panel.name, x + 3, y + nameSize * 0.55 + 1.6);
+
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.8);
-    doc.text(`Origem: ${panel.origin}`, x + 3, y + 11);
-    doc.text(`Geral: ${t.mainRating} A · ${panel.phase} · ${panel.circuits.length} circ.`, x + 3, y + 15);
-    doc.text(`Alim.: ${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? panel.feederParallel + "× " : ""}${panel.feederSection} mm² · ${panel.feederLength} m`, x + 3, y + 19);
+    const info: string[] = [];
+    if (boxH >= 18) {
+      info.push(`Origem: ${panel.origin}`);
+      info.push(`Geral: ${t.mainRating} A · ${panel.phase} · ${panel.circuits.length} circ.`);
+      info.push(`Alim.: ${feederLabel(panel)}`);
+    } else if (boxH >= 13) {
+      info.push(`Origem: ${panel.origin} · Geral ${t.mainRating} A · ${panel.circuits.length} circ.`);
+      info.push(`Alim.: ${feederLabel(panel)}`);
+    } else if (boxH >= 9) {
+      info.push(`Origem: ${panel.origin} · ${t.mainRating} A · ${panel.circuits.length} circ.`);
+    }
+    const infoSize = boxH >= 16 ? 6.8 : 5.6;
+    doc.setFontSize(infoSize);
+    info.forEach((line, li) => {
+      const txt = (doc.splitTextToSize(line, boxW - 6) as string[])[0];
+      doc.text(txt, x + 3, y + nameSize * 0.55 + 1.6 + (li + 1) * (infoSize * 0.72));
+    });
+    if (boxH < 9) {
+      const side = `${panel.origin} → ${t.mainRating} A · ${panel.circuits.length} c.`;
+      doc.setFontSize(5.6);
+      doc.text(side, x + boxW - 3, y + boxH / 2 + 1.4, { align: "right" });
+    }
 
     if (d > 0) {
       doc.setDrawColor(120);
+      doc.setLineWidth(0.25);
       doc.line(x - indent / 2, y - gapY, x - indent / 2, y + boxH / 2);
       doc.line(x - indent / 2, y + boxH / 2, x, y + boxH / 2);
     }
-    y += boxH + gapY;
-    panels.filter(k => k.origin === panel.name && k.id !== panel.id).forEach(k => drawNode(k, depth + 1));
-  };
+  });
 
-  (roots.length ? roots : panels).forEach(r => drawNode(r, 0));
-
-  if (!panels.some(p => panels.some(q => q.name === p.origin && q.id !== p.id))) {
-    paragraph(doc, "Nota: não existem quadros parciais alimentados a partir de outros quadros neste projecto.", y + 4);
+  if (noteH) {
+    paragraph(doc, "Nota: não existem quadros parciais alimentados a partir de outros quadros neste projecto.",
+      startY + 2 + perCol * (boxH + gapY) + 4);
   }
+  doc.setTextColor(0);
 }
+
 
 
 function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
@@ -692,7 +745,7 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
   doc.setDrawColor(20, 80, 60);
   doc.line(cx, y, cx, y + 16);
   doc.setFontSize(7.5);
-  doc.text(`Cabo ${panel.feederMaterial} ${(panel.feederParallel ?? 1) > 1 ? panel.feederParallel + "× " : ""}${panel.feederSection} mm² · L = ${panel.feederLength} m`, cx + 4, y + 9);
+  doc.text(`Cabo ${feederLabel(panel)}`, cx + 4, y + 9);
   y += 16;
 
   // Quadro
@@ -705,7 +758,7 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   doc.text(`Geral ${t.mainRating} A · ${panel.circuits.length} circuitos`, cx, y + 16, { align: "center" });
-  doc.text(`Icc barramento: ${panelIccKA({ ...panel, feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1) }).toFixed(1)} kA`, cx, y + 22, { align: "center" });
+  doc.text(`Icc barramento: ${busIcc(panel).toFixed(1)} kA`, cx, y + 22, { align: "center" });
   y += qH + 6;
 
   // Quadros parciais alimentados
@@ -804,7 +857,7 @@ export async function exportCascadePDF(panels: Panel[], opts?: { logoDataUrl?: s
 
     const t = panelTotals(panel);
     doc.text(`Corte geral: ${t.cutNeed > 100 ? "Fusíveis gG" : "Interruptor"} ${t.mainRating} A`, leftX + 4, y + 21);
-    doc.text(`Interligação: ${panel.feederMaterial} ${panel.feederSection} mm² · L = ${panel.feederLength} m`, leftX + 100, y + 21);
+    doc.text(`Interligação: ${feederLabel(panel)}`, leftX + 100, y + 21);
     doc.setTextColor(0);
 
     const rows = panel.circuits.map((c, i) => {
@@ -847,7 +900,7 @@ export function exportCSV(panel: Panel) {
   const sep = ";";
   const ctx: FeederContext = {
     iccOriginKA: panel.iccOriginKA, feederMaterial: panel.feederMaterial,
-    feederSection: panel.feederSection * Math.max(1, panel.feederParallel ?? 1),
+    feederSection: feederOf(panel).effSection,
     feederLength: panel.feederLength,
     feederDeltaU: 0, voltageMono: panel.voltageMono, voltageTri: panel.voltageTri,
     isQGE: panel.panelKind === "QGE",
@@ -870,7 +923,7 @@ export function exportCSV(panel: Panel) {
   lines.push(`Sistema${sep}${panel.phase === "Tri" ? "Trifasico 400V" : "Monofasico 230V"}`);
   lines.push(`Icc origem (kA)${sep}${panel.iccOriginKA}`);
   lines.push(`Icc barramento (kA)${sep}${panelIccKA(panel).toFixed(1).replace(".", ",")}`);
-  lines.push(`Cabo interligação${sep}${panel.feederMaterial} ${panel.feederSection}mm² x ${panel.feederLength}m`);
+  lines.push(`Cabo interligação${sep}${panel.feederMaterial} ${feederOf(panel).parallel > 1 ? feederOf(panel).parallel + "x" : ""}${feederOf(panel).section}mm² x ${panel.feederLength}m`);
 
   const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
