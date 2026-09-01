@@ -105,6 +105,7 @@ export default function CalcStudio() {
       phase: d.phase,
     }));
     setSelectedCircuitId(null);
+    focusName();
   }
 
   function editCircuit(c: Circuit) {
