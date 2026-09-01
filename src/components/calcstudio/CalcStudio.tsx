@@ -50,6 +50,8 @@ export default function CalcStudio() {
   const [showObra, setShowObra] = useState(false);
   const [showConduit, setShowConduit] = useState(false);
   const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>();
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const focusName = () => requestAnimationFrame(() => { nameInputRef.current?.focus(); nameInputRef.current?.select(); });
 
   useEffect(() => { setState(loadState()); }, []);
   useEffect(() => { if (state.panels.length) saveState(state); }, [state]);
