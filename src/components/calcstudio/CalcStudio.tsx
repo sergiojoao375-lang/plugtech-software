@@ -58,7 +58,8 @@ export default function CalcStudio() {
 
   // Tenta carregar logo.png
   useEffect(() => {
-    fetch("/logo.png").then(r => r.ok ? r.blob() : null).then(b => {
+    // caminho relativo para funcionar também no desktop (file://) sem rede
+    fetch("logo.png").then(r => r.ok ? r.blob() : null).then(b => {
       if (!b) return;
       const fr = new FileReader();
       fr.onload = () => setLogoDataUrl(fr.result as string);
