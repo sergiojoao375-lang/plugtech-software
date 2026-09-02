@@ -372,7 +372,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       return [
         String(i + 1), c.name, c.type, c.phase + (c.phaseAssign ? "/" + c.phaseAssign : ""),
         c.power.toFixed(0), c.cosphi.toFixed(2), c.length.toFixed(1),
-        r.s.toFixed(0), r.ib.toFixed(2), `${r.in}A ${r.curve}`,
+        r.s.toFixed(0), r.ib.toFixed(2), `${r.in}A ${r.curve} · ${r.icuKA}kA`,
         `${r.parallel > 1 ? r.parallel + "×" : ""}${r.section} mm²${c.material === "Al" ? " Al" : ""}`,
         r.iz.toFixed(0), (t.fdU + r.deltaU).toFixed(2) + "%",
         r.iccTerm.toFixed(2),
@@ -453,7 +453,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         : ratio >= 1.6
           ? "Usar aparelho geral selectivo (curva S) ou disjuntor limitador."
           : "Aumentar calibre do geral ou adoptar selectividade cronométrica/energética.";
-      return [String(i + 1), c.name, `${r.in} A ${r.curve}`, `${t.mainRating} A`, ratio.toFixed(2), sel, `${r.ib.toFixed(1)} / ${r.in} / ${r.iz.toFixed(0)}`, coord, obs];
+      return [String(i + 1), c.name, `${r.in} A ${r.curve} / ${r.icuKA} kA`, `${t.mainRating} A`, ratio.toFixed(2), sel, `${r.ib.toFixed(1)} / ${r.in} / ${r.iz.toFixed(0)}`, coord, obs];
     });
     autoTable(doc, {
       ...tableBase(6.4),
@@ -548,7 +548,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       const mat = c.material === "Al" ? "Al" : "Cu";
       const k = `${mat} ${r.parallel > 1 ? r.parallel + "×" : ""}${r.section}mm²`;
       matCables.set(k, (matCables.get(k) || 0) + c.length * r.parallel);
-      const b = `Disjuntor ${r.in}A Curva ${r.curve} (${c.phase})`;
+      const b = `Disjuntor ${r.in}A Curva ${r.curve} ${r.icuKA}kA (${c.phase})`;
       matBreakers.set(b, (matBreakers.get(b) || 0) + 1);
     });
     const fEff = feederOf(panel);
@@ -689,11 +689,15 @@ function drawPanelTree(doc: jsPDF, panels: Panel[], startY: number) {
     } else if (boxH >= 9) {
       info.push(`Origem: ${panel.origin} · ${t.mainRating} A · ${panel.circuits.length} circ.`);
     }
-    const infoSize = boxH >= 16 ? 6.8 : 5.6;
+    const infoSize = boxH >= 16 ? 6.5 : 5.4;
     doc.setFontSize(infoSize);
+    const base = y + nameSize * 0.55 + 1.6;
+    const spacing = info.length
+      ? Math.min(infoSize * 0.78, (y + boxH - 1.8 - base) / info.length)
+      : 0;
     info.forEach((line, li) => {
       const txt = (doc.splitTextToSize(line, boxW - 6) as string[])[0];
-      doc.text(txt, x + 3, y + nameSize * 0.55 + 1.6 + (li + 1) * (infoSize * 0.72));
+      doc.text(txt, x + 3, base + (li + 1) * spacing);
     });
     if (boxH < 9) {
       const side = `${panel.origin} → ${t.mainRating} A · ${panel.circuits.length} c.`;
@@ -761,10 +765,10 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
   doc.text(`Icc barramento: ${busIcc(panel).toFixed(1)} kA`, cx, y + 22, { align: "center" });
   y += qH + 6;
 
-  // Quadros parciais alimentados
+  // Quadros parciais alimentados (todos)
   if (kids.length) {
     const kW = (full - 8) / 3;
-    kids.slice(0, 6).forEach((k, i) => {
+    kids.forEach((k, i) => {
       const col = i % 3, row = Math.floor(i / 3);
       const x = MARGIN + col * (kW + 4);
       const yk = y + row * 18;
@@ -777,25 +781,39 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
       doc.setFontSize(6.8);
       doc.text(`${k.circuits.length} circ. · ${panelTotals(k).mainRating} A`, x + 3, yk + 11);
     });
-    y += Math.ceil(Math.min(kids.length, 6) / 3) * 18 + 4;
+    y += Math.ceil(kids.length / 3) * 18 + 4;
   }
 
-  // Circuitos
+  // Circuitos — TODOS, com continuação em novas páginas quando necessário
   const perRow = 5;
   const gap = 4;
   const colW = (full - gap * (perRow - 1)) / perRow;
   const cardH = 24;
-  const bctx = panelTotals(panel).ctx;
-  panel.circuits.forEach((c, i) => {
-    const col = i % perRow;
-    const row = Math.floor(i / perRow);
-    const cy = y + row * (cardH + gap);
-    if (cy + cardH > pageH - 16) return;
-    const x = MARGIN + col * (colW + gap);
+  const bctx = t.ctx;
+  let baseY = y;
+  let idxInPage = 0;
+
+  panel.circuits.forEach(c => {
+    const col = idxInPage % perRow;
+    const row = Math.floor(idxInPage / perRow);
+    let cy = baseY + row * (cardH + gap);
+    if (cy + cardH > pageH - 16) {
+      doc.addPage("a4", "landscape");
+      header(doc, `Diagrama de blocos — ${panel.name} (cont.)`);
+      baseY = TOP_MARGIN + 4;
+      idxInPage = 0;
+      cy = baseY;
+    }
+    const c2 = idxInPage % perRow;
+    const r2 = Math.floor(idxInPage / perRow);
+    cy = baseY + r2 * (cardH + gap);
+    const x = MARGIN + c2 * (colW + gap);
     doc.setFillColor(250, 250, 250);
     doc.setDrawColor(150);
+    doc.setLineWidth(0.3);
     doc.rect(x, cy, colW, cardH, "FD");
     let ns = 7;
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(ns);
     while (ns > 4.6 && doc.getTextWidth(c.name) > colW - 5) { ns -= 0.2; doc.setFontSize(ns); }
     doc.setTextColor(20);
@@ -805,6 +823,8 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
     doc.text(`${c.power} W · L=${c.length} m`, x + 2.5, cy + 16.5);
     const rc = computeCircuit(c, bctx);
     doc.text(`In=${rc.in} A ${rc.curve} · ${rc.parallel > 1 ? rc.parallel + "×" : ""}${rc.section} mm²`, x + 2.5, cy + 21.5);
+    idxInPage++;
+    void col; void row;
   });
   doc.setTextColor(0);
 }
