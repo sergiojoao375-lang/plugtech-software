@@ -689,11 +689,15 @@ function drawPanelTree(doc: jsPDF, panels: Panel[], startY: number) {
     } else if (boxH >= 9) {
       info.push(`Origem: ${panel.origin} · ${t.mainRating} A · ${panel.circuits.length} circ.`);
     }
-    const infoSize = boxH >= 16 ? 6.8 : 5.6;
+    const infoSize = boxH >= 16 ? 6.5 : 5.4;
     doc.setFontSize(infoSize);
+    const base = y + nameSize * 0.55 + 1.6;
+    const spacing = info.length
+      ? Math.min(infoSize * 0.78, (y + boxH - 1.8 - base) / info.length)
+      : 0;
     info.forEach((line, li) => {
       const txt = (doc.splitTextToSize(line, boxW - 6) as string[])[0];
-      doc.text(txt, x + 3, y + nameSize * 0.55 + 1.6 + (li + 1) * (infoSize * 0.72));
+      doc.text(txt, x + 3, base + (li + 1) * spacing);
     });
     if (boxH < 9) {
       const side = `${panel.origin} → ${t.mainRating} A · ${panel.circuits.length} c.`;
