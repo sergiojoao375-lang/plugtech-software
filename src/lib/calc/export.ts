@@ -761,10 +761,10 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
   doc.text(`Icc barramento: ${busIcc(panel).toFixed(1)} kA`, cx, y + 22, { align: "center" });
   y += qH + 6;
 
-  // Quadros parciais alimentados
+  // Quadros parciais alimentados (todos)
   if (kids.length) {
     const kW = (full - 8) / 3;
-    kids.slice(0, 6).forEach((k, i) => {
+    kids.forEach((k, i) => {
       const col = i % 3, row = Math.floor(i / 3);
       const x = MARGIN + col * (kW + 4);
       const yk = y + row * 18;
@@ -777,25 +777,39 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
       doc.setFontSize(6.8);
       doc.text(`${k.circuits.length} circ. · ${panelTotals(k).mainRating} A`, x + 3, yk + 11);
     });
-    y += Math.ceil(Math.min(kids.length, 6) / 3) * 18 + 4;
+    y += Math.ceil(kids.length / 3) * 18 + 4;
   }
 
-  // Circuitos
+  // Circuitos — TODOS, com continuação em novas páginas quando necessário
   const perRow = 5;
   const gap = 4;
   const colW = (full - gap * (perRow - 1)) / perRow;
   const cardH = 24;
-  const bctx = panelTotals(panel).ctx;
-  panel.circuits.forEach((c, i) => {
-    const col = i % perRow;
-    const row = Math.floor(i / perRow);
-    const cy = y + row * (cardH + gap);
-    if (cy + cardH > pageH - 16) return;
-    const x = MARGIN + col * (colW + gap);
+  const bctx = t.ctx;
+  let baseY = y;
+  let idxInPage = 0;
+
+  panel.circuits.forEach(c => {
+    const col = idxInPage % perRow;
+    const row = Math.floor(idxInPage / perRow);
+    let cy = baseY + row * (cardH + gap);
+    if (cy + cardH > pageH - 16) {
+      doc.addPage("a4", "landscape");
+      header(doc, `Diagrama de blocos — ${panel.name} (cont.)`);
+      baseY = TOP_MARGIN + 4;
+      idxInPage = 0;
+      cy = baseY;
+    }
+    const c2 = idxInPage % perRow;
+    const r2 = Math.floor(idxInPage / perRow);
+    cy = baseY + r2 * (cardH + gap);
+    const x = MARGIN + c2 * (colW + gap);
     doc.setFillColor(250, 250, 250);
     doc.setDrawColor(150);
+    doc.setLineWidth(0.3);
     doc.rect(x, cy, colW, cardH, "FD");
     let ns = 7;
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(ns);
     while (ns > 4.6 && doc.getTextWidth(c.name) > colW - 5) { ns -= 0.2; doc.setFontSize(ns); }
     doc.setTextColor(20);
@@ -805,6 +819,8 @@ function drawBlockDiagram(doc: jsPDF, panel: Panel, kids: Panel[] = []) {
     doc.text(`${c.power} W · L=${c.length} m`, x + 2.5, cy + 16.5);
     const rc = computeCircuit(c, bctx);
     doc.text(`In=${rc.in} A ${rc.curve} · ${rc.parallel > 1 ? rc.parallel + "×" : ""}${rc.section} mm²`, x + 2.5, cy + 21.5);
+    idxInPage++;
+    void col; void row;
   });
   doc.setTextColor(0);
 }
