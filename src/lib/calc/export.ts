@@ -372,7 +372,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       return [
         String(i + 1), c.name, c.type, c.phase + (c.phaseAssign ? "/" + c.phaseAssign : ""),
         c.power.toFixed(0), c.cosphi.toFixed(2), c.length.toFixed(1),
-        r.s.toFixed(0), r.ib.toFixed(2), `${r.in}A ${r.curve}`,
+        r.s.toFixed(0), r.ib.toFixed(2), `${r.in}A ${r.curve} · ${r.icuKA}kA`,
         `${r.parallel > 1 ? r.parallel + "×" : ""}${r.section} mm²${c.material === "Al" ? " Al" : ""}`,
         r.iz.toFixed(0), (t.fdU + r.deltaU).toFixed(2) + "%",
         r.iccTerm.toFixed(2),
@@ -453,7 +453,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
         : ratio >= 1.6
           ? "Usar aparelho geral selectivo (curva S) ou disjuntor limitador."
           : "Aumentar calibre do geral ou adoptar selectividade cronométrica/energética.";
-      return [String(i + 1), c.name, `${r.in} A ${r.curve}`, `${t.mainRating} A`, ratio.toFixed(2), sel, `${r.ib.toFixed(1)} / ${r.in} / ${r.iz.toFixed(0)}`, coord, obs];
+      return [String(i + 1), c.name, `${r.in} A ${r.curve} / ${r.icuKA} kA`, `${t.mainRating} A`, ratio.toFixed(2), sel, `${r.ib.toFixed(1)} / ${r.in} / ${r.iz.toFixed(0)}`, coord, obs];
     });
     autoTable(doc, {
       ...tableBase(6.4),
@@ -548,7 +548,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
       const mat = c.material === "Al" ? "Al" : "Cu";
       const k = `${mat} ${r.parallel > 1 ? r.parallel + "×" : ""}${r.section}mm²`;
       matCables.set(k, (matCables.get(k) || 0) + c.length * r.parallel);
-      const b = `Disjuntor ${r.in}A Curva ${r.curve} (${c.phase})`;
+      const b = `Disjuntor ${r.in}A Curva ${r.curve} ${r.icuKA}kA (${c.phase})`;
       matBreakers.set(b, (matBreakers.get(b) || 0) + 1);
     });
     const fEff = feederOf(panel);
