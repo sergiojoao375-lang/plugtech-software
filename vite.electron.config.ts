@@ -9,6 +9,7 @@ import { resolve } from "path";
 export default defineConfig({
   base: "./",
   plugins: [react(), tailwindcss(), tsconfigPaths()],
+  resolve: { alias: { "@": resolve(__dirname, "src") } },
   root: resolve(__dirname, "electron/renderer"),
   build: {
     outDir: resolve(__dirname, "dist-electron"),
