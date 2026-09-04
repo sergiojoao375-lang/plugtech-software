@@ -1,4 +1,4 @@
-// PLUGTECH CalcStudio Pro - Motor de Cálculo (RTIEBT simplificado)
+// PLUGTECH CalcStudio - Motor de Cálculo (RTIEBT simplificado)
 // Resistividades (Ω·mm²/m) — método simplificado para ΔU e Icc
 export const RHO = { Cu: 0.0225, Al: 0.036 } as const;
 export type Material = "Cu" | "Al";

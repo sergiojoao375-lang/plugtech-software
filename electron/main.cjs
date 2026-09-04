@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 
 // ============================================================
-//  PLUGTECH CalcStudio Pro — arranque desktop (Electron)
+//  PLUGTECH CalcStudio — arranque desktop (Electron)
 //  100% OFFLINE: carrega o build estático (dist-electron) via
 //  file://, sem servidor interno e sem qualquer acesso à rede.
 //  Todos os dados ficam em localStorage, na máquina do utilizador.
@@ -29,7 +29,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    title: "PLUGTECH CalcStudio Pro",
+    title: "PLUGTECH CalcStudio",
     icon: path.join(__dirname, "..", "build", "icon.png"),
     show: false,
     webPreferences: {

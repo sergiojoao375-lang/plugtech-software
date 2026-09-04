@@ -106,7 +106,7 @@ function header(doc: jsPDF, title: string, logo?: string) {
   doc.setTextColor(140, 230, 160);
   doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
-  doc.text("PLUGTECH CalcStudio Pro", 26, 9);
+  doc.text("PLUGTECH CalcStudio", 26, 9);
   doc.setTextColor(220);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
@@ -587,7 +587,7 @@ export async function exportPDF(panels: Panel[], activeId: string | null, opts?:
   doc.setFillColor(255, 255, 255);
   doc.rect(0, 20, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight() - 30, "F");
   let sy = sectionTitle(doc, "7. Validação técnica", TOP_MARGIN);
-  sy = paragraph(doc, `Os cálculos apresentados foram executados com o PLUGTECH CalcStudio Pro segundo os critérios descritos no capítulo 1. ${p?.engenheiro ? `Responsabilidade técnica: ${p.engenheiro}${p?.carteira ? ` (Carteira ${p.carteira})` : ""}.` : ""}`, sy, 9);
+  sy = paragraph(doc, `Os cálculos apresentados foram executados com o PLUGTECH CalcStudio segundo os critérios descritos no capítulo 1. ${p?.engenheiro ? `Responsabilidade técnica: ${p.engenheiro}${p?.carteira ? ` (Carteira ${p.carteira})` : ""}.` : ""}`, sy, 9);
   doc.setDrawColor(0);
   doc.setLineWidth(0.2);
   const wpg = doc.internal.pageSize.getWidth();
