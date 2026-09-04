@@ -891,7 +891,7 @@ function AboutDialog({ open, onClose }: { open: boolean; onClose: () => void }) 
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Sobre a PLUGTECH CalcStudio Pro</DialogTitle>
+          <DialogTitle>Sobre a PLUGTECH CalcStudio</DialogTitle>
           <DialogDescription>
             Software de cálculo de instalações elétricas BT segundo o RTIEBT. Resumo do que a app faz e como decide.
           </DialogDescription>

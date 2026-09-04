@@ -15,7 +15,7 @@
   },
   "build": {
     "appId": "com.plugtech.calcstudio",
-    "productName": "PLUGTECH CalcStudio Pro",
+    "productName": "PLUGTECH CalcStudio",
     "icon": "build/icon.png",
     "directories": {
       "output": "dist-nova"

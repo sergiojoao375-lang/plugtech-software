@@ -1,4 +1,4 @@
-// PLUGTECH CalcStudio Pro - Cálculo da secção/diâmetro de tubagem eléctrica
+// PLUGTECH CalcStudio - Cálculo da secção/diâmetro de tubagem eléctrica
 // Método simplificado por taxa de enchimento (RTIEBT / boas práticas)
 
 export type CableKind = "H07V-K" | "H07V-R" | "XV" | "RZ1-K" | "XZ1" | "FVV";

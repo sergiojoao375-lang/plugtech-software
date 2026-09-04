@@ -23,7 +23,7 @@ export function LogoST({ size = 36 }: { size?: number }) {
         </g>
       </svg>
       <div className="leading-tight">
-        <div className="font-bold tracking-wide text-foreground">PLUGTECH <span className="text-[color:var(--brand-green)]">CalcStudio Pro</span></div>
+        <div className="font-bold tracking-wide text-foreground">PLUGTECH <span className="text-[color:var(--brand-green)]">CalcStudio</span></div>
         <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">SérgioTech • v1.0</div>
       </div>
     </div>
