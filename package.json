@@ -16,11 +16,13 @@
   "build": {
     "appId": "com.plugtech.calcstudio",
     "productName": "PLUGTECH CalcStudio Pro",
+    "icon": "build/icon.png",
     "directories": {
       "output": "dist-nova"
     },
     "files": [
       "electron/**/*",
+      "build/**/*",
       "package.json"
     ],
     "extraResources": [

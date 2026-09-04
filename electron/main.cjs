@@ -30,6 +30,7 @@ function createWindow() {
     width: 1400,
     height: 900,
     title: "PLUGTECH CalcStudio Pro",
+    icon: path.join(__dirname, "..", "build", "icon.png"),
     show: false,
     webPreferences: {
       contextIsolation: true,
