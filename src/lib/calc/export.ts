@@ -3,7 +3,7 @@ import autoTable from "jspdf-autotable";
 import type { Panel, ProjectInfo } from "./storage";
 import { computeCircuit, feederDeltaU, phaseImbalance, pickMainDevice, panelIccKA, effectiveFeeder, type FeederContext } from "./engine";
 
-const FOOTER = "SérgioTech • sergiojoa931@gmail.com • WhatsApp +244 931 728 474 • TECNOLOGIA QUE LIGA SOLUÇÕES";
+const FOOTER = "PLUGTECH CalcStudio • sergiojoa931@gmail.com • WhatsApp +244 931 728 474 • TECNOLOGIA QUE LIGA SOLUÇÕES";
 const TOP_MARGIN = 24; // espaço reservado ao cabeçalho em todas as páginas
 
 // ---- Identidade visual das tabelas (estilo do relatório web) ----
@@ -110,7 +110,7 @@ function header(doc: jsPDF, title: string, logo?: string) {
   doc.setTextColor(220);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text("SérgioTech", 26, 14);
+  doc.text("Relatório técnico de instalações elétricas BT", 26, 14);
   doc.setTextColor(255);
   doc.setFontSize(8.5);
   const maxTitleW = w - 26 - 10 - 4;

@@ -79,7 +79,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "PLUGTECH CalcStudio" },
       { name: "description", content: "PLUGTECH CalcStudio — software de cálculo e dimensionamento de instalações elétricas de baixa tensão." },
-      { name: "author", content: "PLUGTECH / SérgioTech" },
+      { name: "author", content: "PLUGTECH CalcStudio" },
       { property: "og:title", content: "PLUGTECH CalcStudio" },
       { property: "og:description", content: "PLUGTECH CalcStudio — software de cálculo e dimensionamento de instalações elétricas de baixa tensão." },
       { property: "og:type", content: "website" },

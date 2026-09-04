@@ -274,9 +274,9 @@ const totals = useMemo(() => {
       {/* ===== HEADER FIXO ===== */}
       <header className="sticky top-0 z-30 border-b border-border bg-[color:var(--surface-1)]/95 backdrop-blur">
         <div className="flex flex-wrap items-center gap-3 px-4 py-2">
-          <div onDoubleClick={() => setShowConduit(true)} title="Estúdio PLUGTECH" className="cursor-pointer select-none">
+          <div onDoubleClick={() => setShowConduit(true)} title="PLUGTECH CalcStudio" className="cursor-pointer select-none">
             {logoDataUrl
-              ? <img src={logoDataUrl} alt="SérgioTech" className="h-9 w-9 rounded" />
+              ? <img src={logoDataUrl} alt="PLUGTECH CalcStudio" className="h-9 w-9 rounded" />
               : <LogoST size={36} />}
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
