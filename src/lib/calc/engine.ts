@@ -38,7 +38,7 @@ export interface Circuit {
 
 export const STD_BREAKERS = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 400, 630, 800, 1000, 1250, 1800];
 // Calibres alargados para Quadro Geral (QGE) — até 1600 A
-export const STD_BREAKERS_QGE = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 400, 630, 800, 1000, 1250, 1800];
+export const STD_BREAKERS_QGE = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 400, 630, 800, 1000, 1250, 1600, 1800, 2000, 2500, 3200, 3600, 4000, 5000, 6300];
 
 // Tabela simplificada Iz (A) por secção (mm²) Cu — valores conservadores médios
 const IZ_CU: Record<number, Partial<Record<InstallScenario, number>>> = {
@@ -161,33 +161,34 @@ export function computeCircuit(c: Circuit, ctx: FeederContext): CalcResult {
   const minSec = c.type === "Iluminacao" ? 1.5 : (isFeederCircuit ? 6 : 2.5);
   const sectionList = SECTIONS;
   const breakerList = isFeederCircuit ? STD_BREAKERS_QGE : STD_BREAKERS;
-  const maxParallel = (ctx.isQGE || isFeederCircuit) ? 4 : 1;
+  // Grandes quadros / alimentações: permite baterias de condutores em paralelo (até 12 por fase)
+  const maxParallel = (ctx.isQGE || isFeederCircuit) ? 12 : 1;
 
-  const targetBreaker = c.inBreaker ?? (breakerList.find(b => b >= ib) || 16);
-
-  //--minha--const targetBreaker = c.inBreaker ?? (breakerList.find(b => b >= ib) || breakerList[breakerList.length - 1]);
+  // Se nenhum calibre normalizado cobrir Ib, usa o maior disponível (não cair para 16 A)
+  const targetBreaker = c.inBreaker ?? (breakerList.find(b => b >= ib) || breakerList[breakerList.length - 1]);
 
   let chosen = minSec;
   let parallel = 1;
   let iz = izFor(minSec, c.scenario, mat);
   let deltaU = deltaUPercent(c, minSec, mat, ctx);
   let coordinated = false;
+  // Melhor solução encontrada (maior Iz) caso nenhuma cumpra integralmente os limites
+  let best = { sec: minSec, p: 1, iz, dU: deltaU };
 
-  // Força o ciclo a encontrar a menor secção segura de acordo com a RTIEBT
-    // Força o ciclo a encontrar a menor secção segura de acordo com a RTIEBT / Norma Europeia
   for (let p = 1; p <= maxParallel; p++) {
     for (const sec of sectionList) {
       if (sec < minSec) continue;
       const izTry = izFor(sec, c.scenario, mat) * p;
       const dU = deltaUPercent(c, sec * p, mat, ctx);
-      
-      // CORREÇÃO: Define o limite dinâmico cruzando o Tipo de Circuito com a Origem da Alimentação
-            // Linhas 171 e 172 atualizadas:
+
       const isLight = c.type === "Iluminacao";
       const isPT = (ctx as any).supplyType === "PT";
       const limitCritical = isLight ? (isPT ? 6.0 : 3.0) : (isPT ? 8.0 : 5.0);
 
-      
+      if (izTry > best.iz || (izTry === best.iz && dU < best.dU)) {
+        best = { sec, p, iz: izTry, dU };
+      }
+
       if (izTry >= targetBreaker && (ctx.feederDeltaU + dU) <= limitCritical) {
         chosen = sec; 
         parallel = p; 
@@ -199,6 +200,11 @@ export function computeCircuit(c: Circuit, ctx: FeederContext): CalcResult {
     }
     if (coordinated) break;
   }
+
+  if (!coordinated) {
+    chosen = best.sec; parallel = best.p; iz = best.iz; deltaU = best.dU;
+  }
+
 
 
   const inBreaker = targetBreaker;
@@ -378,7 +384,7 @@ export function sizeFeeder(params: {
 }): { section: number; parallel: number; iz: number; deltaU: number } {
   const scenario = params.scenario ?? "Calha";
   const maxDU = params.maxDeltaU ?? 1.5;
-  const maxPar = Math.max(1, params.maxParallel ?? 4);
+  const maxPar = Math.max(1, params.maxParallel ?? 12);
   const minSec = params.minSection ?? 0;
   const need = params.totalCurrentA * 1.25; // margem de coordenação com o aparelho geral
 
