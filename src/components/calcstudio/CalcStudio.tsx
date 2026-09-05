@@ -519,11 +519,17 @@ const totals = useMemo(() => {
             </Field>
             <button onClick={addOrUpdateCircuit}
               className="rounded-md bg-[color:var(--brand-green)] px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 glow-green">
-              {draft.id ? "Atualizar Circuito" : "+ Adicionar Circuito"}
+              {draft.id ? "Atualizar Circuito" : insertIndex !== null ? `+ Inserir na linha ${insertIndex + 1}` : "+ Adicionar Circuito"}
             </button>
             {draft.id && (
               <button onClick={() => { setDraft(emptyDraft()); setSelectedCircuitId(null); }}
                 className="rounded-md border border-border px-3 py-2 text-sm">Cancelar</button>
+            )}
+            {insertIndex !== null && !draft.id && (
+              <button onClick={() => setInsertIndex(null)}
+                className="rounded-md border border-border px-3 py-2 text-sm" title="Voltar a adicionar no fim da lista">
+                Cancelar inserção
+              </button>
             )}
             <button onClick={doBalance}
               className="ml-auto rounded-md border border-[color:var(--brand-blue)]/60 px-3 py-2 text-sm text-[color:var(--brand-blue)] hover:bg-[color:var(--brand-blue)]/10">
