@@ -45,6 +45,7 @@ export default function CalcStudio() {
   const [state, setState] = useState<AppState>({ panels: [], activePanelId: null, project: emptyProject() });
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [selectedCircuitId, setSelectedCircuitId] = useState<string | null>(null);
+  const [insertIndex, setInsertIndex] = useState<number | null>(null);
   const [showPanelMgr, setShowPanelMgr] = useState(true);
   const [showAbout, setShowAbout] = useState(false);
   const [showObra, setShowObra] = useState(false);
