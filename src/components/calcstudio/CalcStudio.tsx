@@ -124,6 +124,7 @@ export default function CalcStudio() {
       type: c.type, cable: c.cable, material: c.material ?? "Cu", scenario: c.scenario, phase: c.phase,
     });
     setSelectedCircuitId(c.id);
+    setInsertIndex(null);
   }
 
   function deleteCircuit(id: string) {
