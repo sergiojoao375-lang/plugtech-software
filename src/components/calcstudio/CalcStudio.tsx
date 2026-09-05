@@ -639,8 +639,16 @@ const totals = useMemo(() => {
                     <td className="px-2 py-1.5 font-semibold" title="Poder de corte mínimo do disjuntor (Icu/Icn) para o Icc presumido neste ponto">{r.icuKA}</td>
                     <td className="px-2 py-1.5">{r.modules}</td>
                     <td className="px-2 py-1.5">
-                      <button onClick={e => { e.stopPropagation(); deleteCircuit(c.id); }}
-                        className="rounded border border-destructive/40 px-2 text-destructive hover:bg-destructive/10">×</button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={e => { e.stopPropagation(); setDraft(d => ({ ...d, id: undefined, name: "", power: "", length: "" })); setSelectedCircuitId(null); setInsertIndex(i); focusName(); }}
+                          title="Inserir novo circuito ACIMA desta linha"
+                          className={`rounded border px-2 hover:bg-[color:var(--brand-green)]/10 ${insertIndex === i ? "border-[color:var(--brand-green)] text-[color:var(--brand-green)]" : "border-border text-muted-foreground"}`}>↑+</button>
+                        <button onClick={e => { e.stopPropagation(); setDraft(d => ({ ...d, id: undefined, name: "", power: "", length: "" })); setSelectedCircuitId(null); setInsertIndex(i + 1); focusName(); }}
+                          title="Inserir novo circuito ABAIXO desta linha"
+                          className={`rounded border px-2 hover:bg-[color:var(--brand-green)]/10 ${insertIndex === i + 1 ? "border-[color:var(--brand-green)] text-[color:var(--brand-green)]" : "border-border text-muted-foreground"}`}>↓+</button>
+                        <button onClick={e => { e.stopPropagation(); deleteCircuit(c.id); }}
+                          className="rounded border border-destructive/40 px-2 text-destructive hover:bg-destructive/10">×</button>
+                      </div>
                     </td>
                   </tr>
 
