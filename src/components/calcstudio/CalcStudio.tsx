@@ -92,6 +92,11 @@ export default function CalcStudio() {
     };
     if (draft.id) {
       setCircuits(panel.circuits.map(x => x.id === draft.id ? { ...x, ...c } : x));
+    } else if (insertIndex !== null) {
+      const next = [...panel.circuits];
+      next.splice(Math.max(0, Math.min(insertIndex, next.length)), 0, c);
+      setCircuits(next);
+      setInsertIndex(i => (i === null ? null : i + 1));
     } else {
       setCircuits([...panel.circuits, c]);
     }
