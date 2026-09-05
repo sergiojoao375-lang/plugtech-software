@@ -161,33 +161,34 @@ export function computeCircuit(c: Circuit, ctx: FeederContext): CalcResult {
   const minSec = c.type === "Iluminacao" ? 1.5 : (isFeederCircuit ? 6 : 2.5);
   const sectionList = SECTIONS;
   const breakerList = isFeederCircuit ? STD_BREAKERS_QGE : STD_BREAKERS;
-  const maxParallel = (ctx.isQGE || isFeederCircuit) ? 4 : 1;
+  // Grandes quadros / alimentações: permite baterias de condutores em paralelo (até 12 por fase)
+  const maxParallel = (ctx.isQGE || isFeederCircuit) ? 12 : 1;
 
-  const targetBreaker = c.inBreaker ?? (breakerList.find(b => b >= ib) || 16);
-
-  //--minha--const targetBreaker = c.inBreaker ?? (breakerList.find(b => b >= ib) || breakerList[breakerList.length - 1]);
+  // Se nenhum calibre normalizado cobrir Ib, usa o maior disponível (não cair para 16 A)
+  const targetBreaker = c.inBreaker ?? (breakerList.find(b => b >= ib) || breakerList[breakerList.length - 1]);
 
   let chosen = minSec;
   let parallel = 1;
   let iz = izFor(minSec, c.scenario, mat);
   let deltaU = deltaUPercent(c, minSec, mat, ctx);
   let coordinated = false;
+  // Melhor solução encontrada (maior Iz) caso nenhuma cumpra integralmente os limites
+  let best = { sec: minSec, p: 1, iz, dU: deltaU };
 
-  // Força o ciclo a encontrar a menor secção segura de acordo com a RTIEBT
-    // Força o ciclo a encontrar a menor secção segura de acordo com a RTIEBT / Norma Europeia
   for (let p = 1; p <= maxParallel; p++) {
     for (const sec of sectionList) {
       if (sec < minSec) continue;
       const izTry = izFor(sec, c.scenario, mat) * p;
       const dU = deltaUPercent(c, sec * p, mat, ctx);
-      
-      // CORREÇÃO: Define o limite dinâmico cruzando o Tipo de Circuito com a Origem da Alimentação
-            // Linhas 171 e 172 atualizadas:
+
       const isLight = c.type === "Iluminacao";
       const isPT = (ctx as any).supplyType === "PT";
       const limitCritical = isLight ? (isPT ? 6.0 : 3.0) : (isPT ? 8.0 : 5.0);
 
-      
+      if (izTry > best.iz || (izTry === best.iz && dU < best.dU)) {
+        best = { sec, p, iz: izTry, dU };
+      }
+
       if (izTry >= targetBreaker && (ctx.feederDeltaU + dU) <= limitCritical) {
         chosen = sec; 
         parallel = p; 
@@ -199,6 +200,11 @@ export function computeCircuit(c: Circuit, ctx: FeederContext): CalcResult {
     }
     if (coordinated) break;
   }
+
+  if (!coordinated) {
+    chosen = best.sec; parallel = best.p; iz = best.iz; deltaU = best.dU;
+  }
+
 
 
   const inBreaker = targetBreaker;
