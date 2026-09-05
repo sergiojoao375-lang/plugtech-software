@@ -384,7 +384,7 @@ export function sizeFeeder(params: {
 }): { section: number; parallel: number; iz: number; deltaU: number } {
   const scenario = params.scenario ?? "Calha";
   const maxDU = params.maxDeltaU ?? 1.5;
-  const maxPar = Math.max(1, params.maxParallel ?? 4);
+  const maxPar = Math.max(1, params.maxParallel ?? 12);
   const minSec = params.minSection ?? 0;
   const need = params.totalCurrentA * 1.25; // margem de coordenação com o aparelho geral
 
