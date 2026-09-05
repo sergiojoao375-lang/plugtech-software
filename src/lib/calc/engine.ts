@@ -38,7 +38,7 @@ export interface Circuit {
 
 export const STD_BREAKERS = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 400, 630, 800, 1000, 1250, 1800];
 // Calibres alargados para Quadro Geral (QGE) — até 1600 A
-export const STD_BREAKERS_QGE = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 400, 630, 800, 1000, 1250, 1800];
+export const STD_BREAKERS_QGE = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 400, 630, 800, 1000, 1250, 1600, 1800, 2000, 2500, 3200, 3600, 4000, 5000, 6300];
 
 // Tabela simplificada Iz (A) por secção (mm²) Cu — valores conservadores médios
 const IZ_CU: Record<number, Partial<Record<InstallScenario, number>>> = {
