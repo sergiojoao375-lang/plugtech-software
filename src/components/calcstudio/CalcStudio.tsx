@@ -6,6 +6,7 @@ import {
   FEEDER_SECTIONS, effectiveFeeder, type FeederContext,
 } from "@/lib/calc/engine";
 import { loadState, saveState, emptyProject, saveProjectFile, loadProjectFile, type AppState, type Panel, type ProjectInfo } from "@/lib/calc/storage";
+import { parseSpreadsheet, downloadImportTemplate } from "@/lib/calc/import";
 import { exportCSV, exportPDF, exportCascadePDF } from "@/lib/calc/export";
 import { ConduitCalculator } from "./ConduitCalculator";
 import { statusColors, classify, type Status } from "./status";
@@ -173,6 +174,34 @@ export default function CalcStudio() {
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  function handleImportSheet(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    parseSpreadsheet(f)
+      .then(res => {
+        setState(s => {
+          const panels = [...s.panels];
+          for (const np of res.panels) {
+            const existing = panels.findIndex(p => p.name.trim().toLowerCase() === np.name.trim().toLowerCase());
+            if (existing >= 0) {
+              panels[existing] = { ...panels[existing], circuits: [...panels[existing].circuits, ...np.circuits] };
+            } else {
+              panels.push(np);
+            }
+          }
+          const first = res.panels[0];
+          const active = panels.find(p => p.name.trim().toLowerCase() === first.name.trim().toLowerCase());
+          return { ...s, panels, activePanelId: active?.id ?? s.activePanelId };
+        });
+        setSelectedCircuitId(null);
+        setDraft(emptyDraft());
+        alert(`Importação concluída: ${res.panels.length} quadro(s) e ${res.circuitCount} circuito(s).`);
+      })
+      .catch(err => alert(`Não foi possível importar o ficheiro.\n${err?.message ?? ""}`));
+  }
 
   function updateProject(patch: Partial<ProjectInfo>) {
     setState(s => ({ ...s, project: { ...s.project, ...patch } }));
@@ -304,6 +333,9 @@ const totals = useMemo(() => {
             <button onClick={() => saveProjectFile(state)} title="Guardar projeto em ficheiro" className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[color:var(--surface-2)]">💾 Guardar</button>
             <button onClick={() => fileInputRef.current?.click()} title="Abrir projeto de ficheiro" className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[color:var(--surface-2)]">📂 Abrir</button>
             <input ref={fileInputRef} type="file" accept="application/json,.json" className="hidden" onChange={handleOpenFile} />
+            <button onClick={() => importInputRef.current?.click()} title="Importar quadros e circuitos de Excel/CSV" className="rounded-md border border-[color:var(--brand-green)]/60 px-3 py-1.5 text-sm text-[color:var(--brand-green)] hover:bg-[color:var(--brand-green)]/10">📥 Importar Excel/CSV</button>
+            <button onClick={downloadImportTemplate} title="Descarregar ficheiro modelo para preencher" className="rounded-md border border-border px-2 py-1.5 text-sm hover:bg-[color:var(--surface-2)]">Modelo</button>
+            <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv,text/csv" className="hidden" onChange={handleImportSheet} />
             <button onClick={() => exportCSV(panel)} className="rounded-md border border-[color:var(--brand-blue)]/50 px-3 py-1.5 text-sm hover:bg-[color:var(--brand-blue)]/10">CSV</button>
             <button onClick={() => exportPDF(state.panels, panel.id, { logoDataUrl, project: state.project })} className="rounded-md bg-[color:var(--brand-blue)] px-3 py-1.5 text-sm font-semibold text-accent-foreground hover:brightness-110">PDF</button>
             <button onClick={() => exportCascadePDF(state.panels, { logoDataUrl, project: state.project })} title="Diagrama geral em cascata de todos os quadros" className="rounded-md bg-[color:var(--brand-green)] px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:brightness-110">PDF Cascata</button>
