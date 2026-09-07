@@ -173,6 +173,34 @@ export default function CalcStudio() {
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  function handleImportSheet(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    parseSpreadsheet(f)
+      .then(res => {
+        setState(s => {
+          const panels = [...s.panels];
+          for (const np of res.panels) {
+            const existing = panels.findIndex(p => p.name.trim().toLowerCase() === np.name.trim().toLowerCase());
+            if (existing >= 0) {
+              panels[existing] = { ...panels[existing], circuits: [...panels[existing].circuits, ...np.circuits] };
+            } else {
+              panels.push(np);
+            }
+          }
+          const first = res.panels[0];
+          const active = panels.find(p => p.name.trim().toLowerCase() === first.name.trim().toLowerCase());
+          return { ...s, panels, activePanelId: active?.id ?? s.activePanelId };
+        });
+        setSelectedCircuitId(null);
+        setDraft(emptyDraft());
+        alert(`Importação concluída: ${res.panels.length} quadro(s) e ${res.circuitCount} circuito(s).`);
+      })
+      .catch(err => alert(`Não foi possível importar o ficheiro.\n${err?.message ?? ""}`));
+  }
 
   function updateProject(patch: Partial<ProjectInfo>) {
     setState(s => ({ ...s, project: { ...s.project, ...patch } }));
