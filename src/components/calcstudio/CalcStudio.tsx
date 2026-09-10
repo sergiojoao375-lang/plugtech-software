@@ -438,14 +438,8 @@ const totals = useMemo(() => {
                 </label>
                 {feederSizing && (
                   <div className="rounded-md border border-border px-2 py-1 text-[10px] font-semibold">
-                    {(() => {
-                      const nConductors = panel.phase === "Tri" ? 4 : 2;
-                      const realParallel = Math.max(1, Math.round(feederSizing.parallel / nConductors));
-                      const materialName = panel.feederMaterial === "Al" ? "Alumínio" : "Cobre";
-                      return realParallel > 1
-                        ? `Cabo: ${realParallel} x ${feederSizing.section} mm² (${materialName}) por fase`
-                        : `Cabo: ${feederSizing.section} mm² (${materialName})`;
-                    })()}
+                    Cabo: {feederSizing.parallel > 1 ? `${feederSizing.parallel} × ` : ""}{feederSizing.section} mm²
+                    {feederSizing.parallel > 1 ? " (em paralelo por fase)" : ""}
                   </div>
                 )}
                 {ctx && (
