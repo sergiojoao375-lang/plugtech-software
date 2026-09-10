@@ -388,18 +388,20 @@ export function sizeFeeder(params: {
   const minSec = params.minSection ?? 0;
   const need = params.totalCurrentA * 1.25; // margem de coordenação com o aparelho geral
 
-  let fallback = { section: FEEDER_SECTIONS[FEEDER_SECTIONS.length - 1], parallel: maxPar, iz: 0, deltaU: 0 };
+  // Melhor solução encontrada (maior Iz) caso nenhuma cumpra integralmente os limites
+  let fallback: { section: number; parallel: number; iz: number; deltaU: number } | null = null;
 
   for (let p = 1; p <= maxPar; p++) {
     for (const sec of FEEDER_SECTIONS) {
-      if (sec < minSec) continue;
+      // A secção mínima refere-se à secção TOTAL por fase (secção x condutores em paralelo)
+      if (sec * p < minSec) continue;
       const iz = izFor(sec, scenario, params.material) * p;
       const dU = feederDeltaU({
         totalCurrentA: params.totalCurrentA, cosphi: params.cosphi, length: params.length,
         section: sec * p, material: params.material, phase: params.phase,
         voltageMono: params.voltageMono, voltageTri: params.voltageTri,
       });
-      if (p === maxPar && sec === FEEDER_SECTIONS[FEEDER_SECTIONS.length - 1]) {
+      if (!fallback || iz > fallback.iz || (iz === fallback.iz && dU < fallback.deltaU)) {
         fallback = { section: sec, parallel: p, iz, deltaU: dU };
       }
       if (iz >= need && dU <= maxDU) {
@@ -407,7 +409,12 @@ export function sizeFeeder(params: {
       }
     }
   }
-  return fallback;
+  return fallback ?? {
+    section: FEEDER_SECTIONS[FEEDER_SECTIONS.length - 1],
+    parallel: maxPar,
+    iz: izFor(FEEDER_SECTIONS[FEEDER_SECTIONS.length - 1], scenario, params.material) * maxPar,
+    deltaU: 0,
+  };
 }
 
 //}
