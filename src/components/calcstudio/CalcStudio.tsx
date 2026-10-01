@@ -5,7 +5,7 @@ import {
   computeCircuit, feederDeltaU, phaseImbalance, balancePhases, pickMainDevice, panelIccKA,
   FEEDER_SECTIONS, effectiveFeeder, type FeederContext,
 } from "@/lib/calc/engine";
-import { loadState, saveState, emptyProject, saveProjectFile, loadProjectFile, type AppState, type Panel, type ProjectInfo } from "@/lib/calc/storage";
+import { loadState, saveState, emptyProject, seed, saveProjectFile, loadProjectFile, type AppState, type Panel, type ProjectInfo } from "@/lib/calc/storage";
 import { parseSpreadsheet, downloadImportTemplate } from "@/lib/calc/import";
 import { exportCSV, exportPDF, exportCascadePDF } from "@/lib/calc/export";
 import { ConduitCalculator } from "./ConduitCalculator";
@@ -207,6 +207,13 @@ export default function CalcStudio() {
     setState(s => ({ ...s, project: { ...s.project, ...patch } }));
   }
 
+  function newProject() {
+    if (!confirm("Criar um novo projeto? Os dados atuais não guardados serão perdidos. Use 💾 Guardar antes, se necessário.")) return;
+    const s = seed();
+    setState(s); setSelectedCircuitId(null); setDraft(emptyDraft());
+    setShowObra(true);
+  }
+
   function handleOpenFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -330,6 +337,7 @@ const totals = useMemo(() => {
             
             <button onClick={() => setShowConduit(true)} title="Calculadora de secção de tubagem" className="rounded-md border border-[color:var(--brand-green)]/60 px-3 py-1.5 text-sm text-[color:var(--brand-green)] hover:bg-[color:var(--brand-green)]/10">Tubagem</button>
             <button onClick={() => setShowObra(true)} title="Dados da obra e responsável" className="rounded-md border border-[color:var(--brand-blue)]/60 px-3 py-1.5 text-sm text-[color:var(--brand-blue)] hover:bg-[color:var(--brand-blue)]/10">📋 Obra</button>
+            <button onClick={newProject} title="Criar um projeto novo do zero" className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[color:var(--surface-2)]">🆕 Novo Projeto</button>
             <button onClick={() => saveProjectFile(state)} title="Guardar projeto em ficheiro" className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[color:var(--surface-2)]">💾 Guardar</button>
             <button onClick={() => fileInputRef.current?.click()} title="Abrir projeto de ficheiro" className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-[color:var(--surface-2)]">📂 Abrir</button>
             <input ref={fileInputRef} type="file" accept="application/json,.json" className="hidden" onChange={handleOpenFile} />
@@ -338,7 +346,6 @@ const totals = useMemo(() => {
             <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv,text/csv" className="hidden" onChange={handleImportSheet} />
             <button onClick={() => exportCSV(panel)} className="rounded-md border border-[color:var(--brand-blue)]/50 px-3 py-1.5 text-sm hover:bg-[color:var(--brand-blue)]/10">CSV</button>
             <button onClick={() => exportPDF(state.panels, panel.id, { logoDataUrl, project: state.project })} className="rounded-md bg-[color:var(--brand-blue)] px-3 py-1.5 text-sm font-semibold text-accent-foreground hover:brightness-110">PDF</button>
-            <button onClick={() => exportCascadePDF(state.panels, { logoDataUrl, project: state.project })} title="Diagrama geral em cascata de todos os quadros" className="rounded-md bg-[color:var(--brand-green)] px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:brightness-110">PDF Cascata</button>
             <button onClick={() => setShowAbout(s => !s)} className="rounded-md border border-border px-2 py-1.5 text-sm">Sobre</button>
           </div>
         </div>
