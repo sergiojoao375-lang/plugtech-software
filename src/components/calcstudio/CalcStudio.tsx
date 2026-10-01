@@ -7,7 +7,7 @@ import {
 } from "@/lib/calc/engine";
 import { loadState, saveState, emptyProject, seed, saveProjectFile, loadProjectFile, type AppState, type Panel, type ProjectInfo } from "@/lib/calc/storage";
 import { parseSpreadsheet, downloadImportTemplate } from "@/lib/calc/import";
-import { exportCSV, exportPDF, exportCascadePDF } from "@/lib/calc/export";
+import { exportCSV, exportPDF } from "@/lib/calc/export";
 import { ConduitCalculator } from "./ConduitCalculator";
 import { statusColors, classify, type Status } from "./status";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
