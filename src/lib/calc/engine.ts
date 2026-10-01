@@ -34,6 +34,7 @@ export interface Circuit {
   phaseAssign?: "L1" | "L2" | "L3"; // apenas mono
   inBreaker?: number;   // calibre escolhido
   curve?: "B" | "C" | "D";
+  rcd30?: boolean;      // protegido por diferencial de alta sensibilidade (≤ 30 mA); undefined = sim
 }
 
 export const STD_BREAKERS = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 400, 630, 800, 1000, 1250, 1800];
