@@ -11,6 +11,15 @@ import { exportCSV, exportPDF } from "@/lib/calc/export";
 import { ConduitCalculator } from "./ConduitCalculator";
 import { statusColors, classify, type Status } from "./status";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { InlineCell, BatchBar, CircuitTemplates, AuditPanel, CircuitInspector, CapacitorBank, SingleLineDiagram, DinFrontView, TripCurves } from "./ProTools";
+import { auditPanel } from "@/lib/calc/audit";
+import { exportPanelDXF } from "@/lib/calc/dxf";
+
+type View = "circuitos" | "unifilar" | "frontal" | "curvas" | "auditoria" | "cosphi";
+const VIEWS: { v: View; label: string }[] = [
+  { v: "circuitos", label: "📋 Circuitos" }, { v: "unifilar", label: "〰 Unifilar" }, { v: "frontal", label: "▦ Frontal DIN" },
+  { v: "curvas", label: "📈 Curvas I-t" }, { v: "auditoria", label: "🛡 Auditoria" }, { v: "cosphi", label: "⚡ Condensadores" },
+];
 
 const CIRCUIT_TYPES: CircuitType[] = ["Iluminacao", "Tomadas", "AC", "Termoacumulador", "PlacaCozinha", "UAC", "QuadroParcial"];
 const SCENARIOS: { v: InstallScenario; label: string }[] = [
@@ -52,6 +61,8 @@ export default function CalcStudio() {
   const [showObra, setShowObra] = useState(false);
   const [showConduit, setShowConduit] = useState(false);
   const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>();
+  const [view, setView] = useState<View>("circuitos");
+  const [selIds, setSelIds] = useState<Set<string>>(new Set());
   const nameInputRef = useRef<HTMLInputElement>(null);
   const focusName = () => requestAnimationFrame(() => { nameInputRef.current?.focus(); nameInputRef.current?.select(); });
 
@@ -133,6 +144,37 @@ export default function CalcStudio() {
     setCircuits(panel.circuits.filter(c => c.id !== id));
     if (selectedCircuitId === id) { setSelectedCircuitId(null); setDraft(emptyDraft()); }
   }
+
+  function patchCircuit(id: string, patch: Partial<Circuit>) {
+    if (!panel) return;
+    setCircuits(panel.circuits.map(c => c.id === id ? { ...c, ...patch } : c));
+  }
+  function batchPatch(patch: Partial<Circuit>) {
+    if (!panel) return;
+    setCircuits(panel.circuits.map(c => selIds.has(c.id) ? { ...c, ...patch } : c));
+  }
+  function batchDuplicate() {
+    if (!panel) return;
+    const out: Circuit[] = [];
+    for (const c of panel.circuits) { out.push(c); if (selIds.has(c.id)) out.push({ ...c, id: crypto.randomUUID(), name: `${c.name} (cópia)` }); }
+    setCircuits(out);
+  }
+  function batchDelete() {
+    if (!panel || !confirm(`Apagar ${selIds.size} circuito(s)?`)) return;
+    setCircuits(panel.circuits.filter(c => !selIds.has(c.id)));
+    setSelIds(new Set());
+  }
+  function toggleSel(id: string) {
+    setSelIds(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  function addTemplate(t: Omit<Circuit, "id">) {
+    if (!panel) return;
+    const c: Circuit = { ...t, id: crypto.randomUUID() };
+    if (insertIndex !== null) {
+      const next = [...panel.circuits]; next.splice(insertIndex, 0, c); setCircuits(next); setInsertIndex(insertIndex + 1);
+    } else setCircuits([...panel.circuits, c]);
+  }
+  const num = (v: string) => parseFloat(v.replace(",", ".")) || 0;
 
   function createNewPanel() {
     const id = crypto.randomUUID();
@@ -309,6 +351,12 @@ const totals = useMemo(() => {
 
   const selected = computed.find(x => x.c.id === selectedCircuitId);
 
+  const audit = useMemo(() => ctx ? auditPanel({ computed, ctx, imbalancePct: imb?.pct ?? 0, isQGE: panel?.panelKind === "QGE" }) : { issues: [], score: 100 }, [computed, ctx, imb, panel]);
+  const realCos = useMemo(() => {
+    const p = computed.reduce((a, x) => a + x.c.power, 0);
+    const s = computed.reduce((a, x) => a + x.r.s, 0);
+    return s > 0 ? Math.round((p / s) * 100) / 100 : (panel?.cosphi ?? 0.9);
+  }, [computed, panel]);
 
   if (!panel) return <div className="p-8">A carregar…</div>;
 
