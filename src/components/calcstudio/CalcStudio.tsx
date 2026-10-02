@@ -11,6 +11,15 @@ import { exportCSV, exportPDF } from "@/lib/calc/export";
 import { ConduitCalculator } from "./ConduitCalculator";
 import { statusColors, classify, type Status } from "./status";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { InlineCell, BatchBar, CircuitTemplates, AuditPanel, CircuitInspector, CapacitorBank, SingleLineDiagram, DinFrontView, TripCurves } from "./ProTools";
+import { auditPanel } from "@/lib/calc/audit";
+import { exportPanelDXF } from "@/lib/calc/dxf";
+
+type View = "circuitos" | "unifilar" | "frontal" | "curvas" | "auditoria" | "cosphi";
+const VIEWS: { v: View; label: string }[] = [
+  { v: "circuitos", label: "📋 Circuitos" }, { v: "unifilar", label: "〰 Unifilar" }, { v: "frontal", label: "▦ Frontal DIN" },
+  { v: "curvas", label: "📈 Curvas I-t" }, { v: "auditoria", label: "🛡 Auditoria" }, { v: "cosphi", label: "⚡ Condensadores" },
+];
 
 const CIRCUIT_TYPES: CircuitType[] = ["Iluminacao", "Tomadas", "AC", "Termoacumulador", "PlacaCozinha", "UAC", "QuadroParcial"];
 const SCENARIOS: { v: InstallScenario; label: string }[] = [
@@ -52,6 +61,8 @@ export default function CalcStudio() {
   const [showObra, setShowObra] = useState(false);
   const [showConduit, setShowConduit] = useState(false);
   const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>();
+  const [view, setView] = useState<View>("circuitos");
+  const [selIds, setSelIds] = useState<Set<string>>(new Set());
   const nameInputRef = useRef<HTMLInputElement>(null);
   const focusName = () => requestAnimationFrame(() => { nameInputRef.current?.focus(); nameInputRef.current?.select(); });
 
@@ -133,6 +144,37 @@ export default function CalcStudio() {
     setCircuits(panel.circuits.filter(c => c.id !== id));
     if (selectedCircuitId === id) { setSelectedCircuitId(null); setDraft(emptyDraft()); }
   }
+
+  function patchCircuit(id: string, patch: Partial<Circuit>) {
+    if (!panel) return;
+    setCircuits(panel.circuits.map(c => c.id === id ? { ...c, ...patch } : c));
+  }
+  function batchPatch(patch: Partial<Circuit>) {
+    if (!panel) return;
+    setCircuits(panel.circuits.map(c => selIds.has(c.id) ? { ...c, ...patch } : c));
+  }
+  function batchDuplicate() {
+    if (!panel) return;
+    const out: Circuit[] = [];
+    for (const c of panel.circuits) { out.push(c); if (selIds.has(c.id)) out.push({ ...c, id: crypto.randomUUID(), name: `${c.name} (cópia)` }); }
+    setCircuits(out);
+  }
+  function batchDelete() {
+    if (!panel || !confirm(`Apagar ${selIds.size} circuito(s)?`)) return;
+    setCircuits(panel.circuits.filter(c => !selIds.has(c.id)));
+    setSelIds(new Set());
+  }
+  function toggleSel(id: string) {
+    setSelIds(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  function addTemplate(t: Omit<Circuit, "id">) {
+    if (!panel) return;
+    const c: Circuit = { ...t, id: crypto.randomUUID() };
+    if (insertIndex !== null) {
+      const next = [...panel.circuits]; next.splice(insertIndex, 0, c); setCircuits(next); setInsertIndex(insertIndex + 1);
+    } else setCircuits([...panel.circuits, c]);
+  }
+  const num = (v: string) => parseFloat(v.replace(",", ".")) || 0;
 
   function createNewPanel() {
     const id = crypto.randomUUID();
@@ -309,6 +351,12 @@ const totals = useMemo(() => {
 
   const selected = computed.find(x => x.c.id === selectedCircuitId);
 
+  const audit = useMemo(() => ctx ? auditPanel({ computed, ctx, imbalancePct: imb?.pct ?? 0, isQGE: panel?.panelKind === "QGE" }) : { issues: [], score: 100 }, [computed, ctx, imb, panel]);
+  const realCos = useMemo(() => {
+    const p = computed.reduce((a, x) => a + x.c.power, 0);
+    const s = computed.reduce((a, x) => a + x.r.s, 0);
+    return s > 0 ? Math.round((p / s) * 100) / 100 : (panel?.cosphi ?? 0.9);
+  }, [computed, panel]);
 
   if (!panel) return <div className="p-8">A carregar…</div>;
 
@@ -346,6 +394,7 @@ const totals = useMemo(() => {
             <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv,text/csv" className="hidden" onChange={handleImportSheet} />
             <button onClick={() => exportCSV(panel)} className="rounded-md border border-[color:var(--brand-blue)]/50 px-3 py-1.5 text-sm hover:bg-[color:var(--brand-blue)]/10">CSV</button>
             <button onClick={() => exportPDF(state.panels, panel.id, { logoDataUrl, project: state.project })} className="rounded-md bg-[color:var(--brand-blue)] px-3 py-1.5 text-sm font-semibold text-accent-foreground hover:brightness-110">PDF</button>
+            <button onClick={() => exportPanelDXF(panel, totals.cut, computed)} title="Exportar esquema unifilar e tabela de cargas para AutoCAD (DXF)" className="rounded-md border border-[color:var(--brand-blue)]/50 px-3 py-1.5 text-sm hover:bg-[color:var(--brand-blue)]/10">DXF</button>
             <button onClick={() => setShowAbout(s => !s)} className="rounded-md border border-border px-2 py-1.5 text-sm">Sobre</button>
           </div>
         </div>
@@ -586,18 +635,45 @@ const totals = useMemo(() => {
 
 
       {/* ===== TABELA CENTRAL (SCROLL VERTICAL) ===== */}
+      <div className="flex flex-wrap items-center gap-1 border-b border-border bg-[color:var(--surface-1)] px-3 py-1.5">
+        {VIEWS.map(t => (
+          <button key={t.v} onClick={() => setView(t.v)}
+            className={`rounded-md px-3 py-1 text-xs font-semibold ${view === t.v ? "bg-[color:var(--brand-green)] text-primary-foreground" : "text-muted-foreground hover:bg-[color:var(--surface-2)]"}`}>
+            {t.label}{t.v === "auditoria" && audit.issues.some(x => x.level === "critical") ? " ●" : ""}
+          </button>
+        ))}
+        <div className="ml-auto"><CircuitTemplates onAdd={addTemplate} /></div>
+      </div>
+      {view === "circuitos" && (
+        <BatchBar count={selIds.size} onPatch={batchPatch} onDuplicate={batchDuplicate} onDelete={batchDelete} onClear={() => setSelIds(new Set())}
+          cableOptions={[...CABLE_TYPES_CU, ...CABLE_TYPES_AL]} scenarios={SCENARIOS} types={CIRCUIT_TYPES} labelType={labelType} />
+      )}
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+        {view !== "circuitos" && (
+          <section className="min-h-0 flex-1 overflow-auto">
+            {view === "unifilar" && <SingleLineDiagram rows={computed} panelName={panel.name} mainLabel={totals.cut} onPick={c => { editCircuit(c); setView("circuitos"); }} />}
+            {view === "frontal" && <DinFrontView rows={computed} mainPoles={panel.phase === "Tri" ? 4 : 2} />}
+            {view === "curvas" && <TripCurves rows={computed} mainRating={totals.mainRating || 63} iccKA={panelIccKA(panel)} selectedId={selectedCircuitId} />}
+            {view === "auditoria" && <AuditPanel issues={audit.issues} score={audit.score} onPick={id => { const c = panel.circuits.find(x => x.id === id); if (c) { editCircuit(c); setView("circuitos"); } }} />}
+            {view === "cosphi" && <CapacitorBank key={panel.id} pW={totals.p} cosNow={realCos} />}
+          </section>
+        )}
+        {view === "circuitos" && (
         <section className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <table className="w-full table-fixed text-xs">
             <thead className="sticky top-0 z-10 bg-[color:var(--surface-2)] text-foreground">
               <tr>
-                {["#","Circuito","Tipo","Fase","P(W)","S(VA)","Ib(A)","In(A)","Curva","Secção","Iz(A)","ΔU%","Icc(kA)","PdC(kA)","Mód","Ações"].map(h =>
+                <th className="w-7 border-b border-border px-2 py-2">
+                  <input type="checkbox" checked={computed.length > 0 && selIds.size === computed.length}
+                    onChange={e => setSelIds(e.target.checked ? new Set(computed.map(x => x.c.id)) : new Set())} />
+                </th>
+                {["#","Circuito","Tipo","Fase","P(W)","L(m)","S(VA)","Ib(A)","In(A)","Curva","Secção","Iz(A)","ΔU%","Icc(kA)","PdC(kA)","Mód","Ações"].map(h =>
                   <th key={h} className="border-b border-border px-2 py-2 text-left font-semibold">{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {computed.length === 0 && (
-                <tr><td colSpan={16} className="p-12 text-center text-muted-foreground">Sem circuitos. Adicione um circuito acima ↑</td></tr>
+                <tr><td colSpan={18} className="p-12 text-center text-muted-foreground">Sem circuitos. Adicione um circuito acima ↑</td></tr>
               )}
               {computed.map(({ c, r }, i) => {
                 const hasErr = r.errors.length > 0;
@@ -659,11 +735,15 @@ const totals = useMemo(() => {
                                     <tr key={c.id}
                       onClick={() => editCircuit(c)}
                       className={`cursor-pointer border-b border-border/60 hover:bg-[color:var(--surface-2)] ${sel ? "bg-[color:var(--brand-blue)]/10" : ""}`}>
+                    <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selIds.has(c.id)} onChange={() => toggleSel(c.id)} />
+                    </td>
                     <td className="px-2 py-1.5">{i + 1}</td>
-                    <td className="px-2 py-1.5 font-medium">{c.name}</td>
+                    <td className="px-2 py-1.5 font-medium"><InlineCell value={c.name} onSave={v => v.trim() && patchCircuit(c.id, { name: v.trim() })} /></td>
                     <td className="px-2 py-1.5">{labelType(c.type)}</td>
                     <td className="px-2 py-1.5">{c.phase}{c.phaseAssign ? `/${c.phaseAssign}` : ""}</td>
-                    <td className="px-2 py-1.5">{c.power.toFixed(0)}</td>
+                    <td className="px-2 py-1.5"><InlineCell numeric value={c.power.toFixed(0)} onSave={v => num(v) > 0 && patchCircuit(c.id, { power: num(v) })} /></td>
+                    <td className="px-2 py-1.5"><InlineCell numeric value={c.length} onSave={v => num(v) > 0 && patchCircuit(c.id, { length: num(v) })} /></td>
                     <td className="px-2 py-1.5">{r.s.toFixed(0)}</td>
                     <td className="px-2 py-1.5">{r.ib.toFixed(2)}</td>
                     <td className={`px-2 py-1.5 ${inUnder ? "bg-destructive/30 text-destructive font-semibold" : ""}`} 
@@ -698,9 +778,10 @@ const totals = useMemo(() => {
             </tbody>
           </table>
         </section>
+        )}
 
         {/* Painel de diagnóstico */}
-        {selected && (
+        {selected && view === "circuitos" && (
           <aside className="w-full shrink-0 border-l border-border bg-card p-4 text-sm lg:w-80 lg:overflow-y-auto">
             <div className="mb-2 text-[10px] uppercase tracking-wider text-muted-foreground">Diagnóstico Assistido</div>
             <h3 className="mb-3 text-base font-bold text-[color:var(--brand-green)]">{selected.c.name}</h3>
@@ -730,6 +811,11 @@ const totals = useMemo(() => {
                 <div className="rounded border border-[color:var(--brand-green)]/40 bg-[color:var(--brand-green)]/10 p-2 text-[color:var(--brand-green)]">✓ Circuito conforme RTIEBT.</div>
               )}
             </div>
+            <label className="mt-3 flex items-center gap-2 text-xs">
+              <input type="checkbox" checked={selected.c.rcd30 !== false} onChange={e => patchCircuit(selected.c.id, { rcd30: e.target.checked })} />
+              Protegido por diferencial ≤ 30 mA
+            </label>
+            {ctx && <CircuitInspector row={selected} ctx={ctx} />}
           </aside>
         )}
       </main>
