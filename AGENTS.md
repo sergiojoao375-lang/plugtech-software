@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Professional tools (inline edit, batch, templates, audit, inspector, capacitor, single-line, DIN front, trip curves) live in src/components/calcstudio/ProTools.tsx with pure logic in src/lib/calc/{audit,curves,capacitor,dxf}.ts — keeps CalcStudio.tsx from growing and logic testable/offline.
