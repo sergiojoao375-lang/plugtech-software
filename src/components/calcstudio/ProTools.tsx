@@ -6,6 +6,7 @@ import { izFor } from "@/lib/calc/engine";
 import type { AuditIssue } from "@/lib/calc/audit";
 import { capacitorBank } from "@/lib/calc/capacitor";
 import { curvePoints, selectivityLimit, type CurveKind } from "@/lib/calc/curves";
+import type { RCD } from "@/lib/calc/rcd";
 
 type Row = { c: Circuit; r: CalcResult };
 const inputCls = "w-full rounded border border-border bg-[color:var(--surface-2)] px-1 py-0.5 text-xs";
@@ -170,9 +171,18 @@ export function CapacitorBank({ pW, cosNow }: { pW: number; cosNow: number }) {
 
 /* ---------------- Esquema unifilar ---------------- */
 const PH: Record<string, string> = { L1: "#8B4513", L2: "#111111", L3: "#808080" };
-export function SingleLineDiagram({ rows, panelName, mainLabel, onPick }: { rows: Row[]; panelName: string; mainLabel: string; onPick: (c: Circuit) => void }) {
+export function SingleLineDiagram({ rows: rows0, panelName, mainLabel, onPick, rcds = [] }: { rows: Row[]; panelName: string; mainLabel: string; onPick: (c: Circuit) => void; rcds?: RCD[] }) {
+  const idx = new Map(rows0.map((x, i) => [x.c.id, i]));
+  // agrupa os circuitos por diferencial (ordem dos DR), depois os sem DR
+  const groups: Array<{ d?: RCD; rows: Row[] }> = rcds.map(d => ({ d, rows: rows0.filter(x => d.circuitIds.includes(x.c.id)) })).filter(g => g.rows.length);
+  const loose = rows0.filter(x => !rcds.some(d => d.circuitIds.includes(x.c.id)));
+  if (loose.length) groups.push({ rows: loose });
+  const rows = groups.flatMap(g => g.rows);
+  const hasRcd = groups.some(g => g.d);
+  const off = hasRcd ? 70 : 0;
   const step = 90, busY = 110, n = Math.max(1, rows.length);
-  const W = 80 + n * step, H = 470;
+  const W = 80 + n * step, H = 470 + off;
+  let pos = 0;
   return (
     <div className="overflow-auto p-4">
       <svg width={W} height={H} className="rounded-lg border border-border bg-card" style={{ minWidth: W }}>
@@ -185,20 +195,39 @@ export function SingleLineDiagram({ rows, panelName, mainLabel, onPick }: { rows
           <g key={p}><line x1={20} y1={busY + k * 5} x2={W - 20} y2={busY + k * 5} stroke={PH[p]} strokeWidth={3} />
             <text x={W - 18} y={busY + k * 5 + 3} fontSize={8} className="fill-muted-foreground">{p}</text></g>
         ))}
+        {groups.map((g, gi) => {
+          const start = pos; pos += g.rows.length;
+          if (!g.d) return null;
+          const x1 = 70 + start * step, x2 = 70 + (pos - 1) * step, xm = (x1 + x2) / 2, y = busY + 10;
+          return (
+            <g key={gi}>
+              <line x1={xm} y1={y} x2={xm} y2={y + 14} stroke="#2563eb" strokeWidth={2} />
+              <rect x={xm - 14} y={y + 14} width={28} height={26} fill="none" stroke="#2563eb" strokeWidth={2} />
+              <ellipse cx={xm} cy={y + 27} rx={8} ry={5} fill="none" stroke="#2563eb" strokeWidth={1.5} />
+              <line x1={xm} y1={y + 40} x2={xm} y2={y + 56} stroke="#2563eb" strokeWidth={2} />
+              <line x1={x1} y1={y + 56} x2={x2} y2={y + 56} stroke="#2563eb" strokeWidth={3} />
+              <text x={xm + 18} y={y + 24} fontSize={10} fontWeight={700} fill="#2563eb">{g.d.label}</text>
+              <text x={xm + 18} y={y + 36} fontSize={9} className="fill-muted-foreground">{g.d.inA}A {g.d.iAnmA}mA {g.d.poles}P {g.d.kind}</text>
+            </g>
+          );
+        })}
         {rows.map(({ c, r }, i) => {
-          const x = 70 + i * step, y0 = busY + 10;
+          const inR = rcds.some(d => d.circuitIds.includes(c.id));
+          const x = 70 + i * step, y0 = busY + 10 + off;
           const col = c.phase === "Tri" ? "#2E8B57" : PH[c.phaseAssign ?? "L1"];
           const bad = r.errors.length > 0;
+          const num = (idx.get(c.id) ?? i) + 1;
           return (
             <g key={c.id} className="cursor-pointer" onClick={() => onPick(c)}>
               <rect x={x - 40} y={y0} width={80} height={H - y0 - 10} fill="transparent" className="hover:fill-[color:var(--brand-blue)]/10" />
+              {off > 0 && <line x1={x} y1={inR ? y0 - 14 : busY + 10} x2={x} y2={y0} stroke={col} strokeWidth={2} />}
               <line x1={x} y1={y0} x2={x} y2={y0 + 30} stroke={col} strokeWidth={2} />
               <line x1={x} y1={y0 + 30} x2={x + 10} y2={y0 + 50} stroke={col} strokeWidth={2} />
               <line x1={x - 4} y1={y0 + 26} x2={x + 4} y2={y0 + 34} stroke={col} strokeWidth={2} />
               <line x1={x + 4} y1={y0 + 26} x2={x - 4} y2={y0 + 34} stroke={col} strokeWidth={2} />
               <line x1={x} y1={y0 + 50} x2={x} y2={y0 + 150} stroke={col} strokeWidth={2} />
               <circle cx={x} cy={y0 + 162} r={12} fill="none" stroke={bad ? "#e5484d" : col} strokeWidth={2} />
-              <text x={x} y={y0 + 166} fontSize={9} textAnchor="middle" className="fill-foreground">C{i + 1}</text>
+              <text x={x} y={y0 + 166} fontSize={9} textAnchor="middle" className="fill-foreground">C{num}</text>
               <text x={x + 14} y={y0 + 46} fontSize={10} className={bad ? "fill-destructive" : "fill-foreground"} fontWeight={700}>{r.in}A {r.curve}</text>
               <text x={x + 14} y={y0 + 58} fontSize={9} className="fill-muted-foreground">{r.icuKA} kA</text>
               <text x={x + 4} y={y0 + 95} fontSize={9} className="fill-muted-foreground">{r.parallel > 1 ? `${r.parallel}×` : ""}{r.section}mm²</text>
