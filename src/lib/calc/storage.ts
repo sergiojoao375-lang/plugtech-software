@@ -17,6 +17,7 @@ export interface Panel {
   panelKind?: "QE" | "QGE"; // tipo de quadro (distribuição vs geral)
   supplyType?: "PT" | "Rede"; // origem da alimentação
   circuits: Circuit[];
+  rcds?: import("./rcd").RCD[]; // diferenciais do quadro e circuitos protegidos
 }
 
 export interface ProjectInfo {
