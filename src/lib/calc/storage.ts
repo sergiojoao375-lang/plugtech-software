@@ -18,6 +18,7 @@ export interface Panel {
   supplyType?: "PT" | "Rede"; // origem da alimentação
   circuits: Circuit[];
   rcds?: import("./rcd").RCD[]; // diferenciais do quadro e circuitos protegidos
+  equip?: import("./equipment").PanelEquip; // DST, bobina MX, inversor, UPS, barramentos, comando
 }
 
 export interface ProjectInfo {
