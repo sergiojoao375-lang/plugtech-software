@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Professional tools (inline edit, batch, templates, audit, inspector, capacitor, single-line, DIN front, trip curves) live in src/components/calcstudio/ProTools.tsx with pure logic in src/lib/calc/{audit,curves,capacitor,dxf}.ts — keeps CalcStudio.tsx from growing and logic testable/offline.
+- Panel equipment (SPD, MX coil, ATS/generator, UPS, busbars, control modules with terminals) is stored in `Panel.equip`; logic in src/lib/calc/equipment.ts, UI in EquipmentManager.tsx — keeps checks reusable by audit and the single-line diagram.
