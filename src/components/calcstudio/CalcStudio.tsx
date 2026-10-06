@@ -13,12 +13,14 @@ import { statusColors, classify, type Status } from "./status";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { InlineCell, BatchBar, CircuitTemplates, AuditPanel, CircuitInspector, CapacitorBank, SingleLineDiagram, DinFrontView, TripCurves } from "./ProTools";
 import { RCDManager } from "./RCDManager";
+import { EquipmentManager } from "./EquipmentManager";
+import { circuitTags } from "@/lib/calc/equipment";
 import { auditPanel } from "@/lib/calc/audit";
 import { exportPanelDXF } from "@/lib/calc/dxf";
 
-type View = "circuitos" | "diferenciais" | "unifilar" | "frontal" | "curvas" | "auditoria" | "cosphi";
+type View = "circuitos" | "diferenciais" | "equipamento" | "unifilar" | "frontal" | "curvas" | "auditoria" | "cosphi";
 const VIEWS: { v: View; label: string }[] = [
-  { v: "circuitos", label: "📋 Circuitos" }, { v: "diferenciais", label: "🛡 Diferenciais" }, { v: "unifilar", label: "〰 Unifilar" }, { v: "frontal", label: "▦ Frontal DIN" },
+  { v: "circuitos", label: "📋 Circuitos" }, { v: "diferenciais", label: "🛡 Diferenciais" }, { v: "equipamento", label: "🎛 Equipamento" }, { v: "unifilar", label: "〰 Unifilar" }, { v: "frontal", label: "▦ Frontal DIN" },
   { v: "curvas", label: "📈 Curvas I-t" }, { v: "auditoria", label: "✅ Auditoria" }, { v: "cosphi", label: "⚡ Condensadores" },
 ];
 
@@ -352,7 +354,7 @@ const totals = useMemo(() => {
 
   const selected = computed.find(x => x.c.id === selectedCircuitId);
 
-  const audit = useMemo(() => ctx ? auditPanel({ computed, ctx, imbalancePct: imb?.pct ?? 0, isQGE: panel?.panelKind === "QGE", rcds: panel?.rcds }) : { issues: [], score: 100 }, [computed, ctx, imb, panel]);
+  const audit = useMemo(() => ctx ? auditPanel({ computed, ctx, imbalancePct: imb?.pct ?? 0, isQGE: panel?.panelKind === "QGE", rcds: panel?.rcds, equip: panel?.equip, panelIb: totals.ib, iccKA: panel ? panelIccKA(panel) : 0 }) : { issues: [], score: 100 }, [computed, ctx, imb, panel]);
   const realCos = useMemo(() => {
     const p = computed.reduce((a, x) => a + x.c.power, 0);
     const s = computed.reduce((a, x) => a + x.r.s, 0);
@@ -652,7 +654,8 @@ const totals = useMemo(() => {
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {view !== "circuitos" && (
           <section className="min-h-0 flex-1 overflow-auto">
-            {view === "unifilar" && <SingleLineDiagram rows={computed} rcds={panel.rcds ?? []} panelName={panel.name} mainLabel={totals.cut} onPick={c => { editCircuit(c); setView("circuitos"); }} />}
+            {view === "unifilar" && <SingleLineDiagram rows={computed} rcds={panel.rcds ?? []} equip={panel.equip ?? {}} tags={circuitTags(panel.equip ?? {})} panelName={panel.name} mainLabel={totals.cut} onPick={c => { editCircuit(c); setView("circuitos"); }} />}
+            {view === "equipamento" && <EquipmentManager equip={panel.equip ?? {}} rows={computed} isQGE={panel.panelKind === "QGE"} panelIb={totals.ib} iccKA={panelIccKA(panel)} onChange={equip => updatePanel({ equip })} />}
             {view === "diferenciais" && <RCDManager rcds={panel.rcds ?? []} rows={computed} onChange={rcds => updatePanel({ rcds })} />}
             {view === "frontal" && <DinFrontView rows={computed} mainPoles={panel.phase === "Tri" ? 4 : 2} />}
             {view === "curvas" && <TripCurves rows={computed} mainRating={totals.mainRating || 63} iccKA={panelIccKA(panel)} selectedId={selectedCircuitId} />}
