@@ -7,6 +7,8 @@ import type { AuditIssue } from "@/lib/calc/audit";
 import { capacitorBank } from "@/lib/calc/capacitor";
 import { curvePoints, selectivityLimit, type CurveKind } from "@/lib/calc/curves";
 import type { RCD } from "@/lib/calc/rcd";
+import type { PanelEquip } from "@/lib/calc/equipment";
+import { generatorIcc } from "@/lib/calc/equipment";
 
 type Row = { c: Circuit; r: CalcResult };
 const inputCls = "w-full rounded border border-border bg-[color:var(--surface-2)] px-1 py-0.5 text-xs";
@@ -171,7 +173,8 @@ export function CapacitorBank({ pW, cosNow }: { pW: number; cosNow: number }) {
 
 /* ---------------- Esquema unifilar ---------------- */
 const PH: Record<string, string> = { L1: "#8B4513", L2: "#111111", L3: "#808080" };
-export function SingleLineDiagram({ rows: rows0, panelName, mainLabel, onPick, rcds = [] }: { rows: Row[]; panelName: string; mainLabel: string; onPick: (c: Circuit) => void; rcds?: RCD[] }) {
+export function SingleLineDiagram({ rows: rows0, panelName, mainLabel, onPick, rcds = [], equip = {}, tags }: { rows: Row[]; panelName: string; mainLabel: string; onPick: (c: Circuit) => void; rcds?: RCD[]; equip?: PanelEquip; tags?: Map<string, string[]> }) {
+  const busOf = (id: string) => (equip.buses ?? []).find(b => b.circuitIds.includes(id));
   const idx = new Map(rows0.map((x, i) => [x.c.id, i]));
   // agrupa os circuitos por diferencial (ordem dos DR), depois os sem DR
   const groups: Array<{ d?: RCD; rows: Row[] }> = rcds.map(d => ({ d, rows: rows0.filter(x => d.circuitIds.includes(x.c.id)) })).filter(g => g.rows.length);
@@ -185,6 +188,7 @@ export function SingleLineDiagram({ rows: rows0, panelName, mainLabel, onPick, r
   let pos = 0;
   return (
     <div className="overflow-auto p-4">
+      <PanelHead equip={equip} mainLabel={mainLabel} />
       <svg width={W} height={H} className="rounded-lg border border-border bg-card" style={{ minWidth: W }}>
         <text x={16} y={24} className="fill-foreground" fontSize={14} fontWeight={700}>{panelName} — Esquema unifilar</text>
         <line x1={40} y1={34} x2={40} y2={60} stroke="currentColor" className="text-foreground" strokeWidth={2} />
@@ -226,6 +230,11 @@ export function SingleLineDiagram({ rows: rows0, panelName, mainLabel, onPick, r
               <line x1={x - 4} y1={y0 + 26} x2={x + 4} y2={y0 + 34} stroke={col} strokeWidth={2} />
               <line x1={x + 4} y1={y0 + 26} x2={x - 4} y2={y0 + 34} stroke={col} strokeWidth={2} />
               <line x1={x} y1={y0 + 50} x2={x} y2={y0 + 150} stroke={col} strokeWidth={2} />
+              {(tags?.get(c.id) ?? []).slice(0, 2).map((t, k) => (
+                <g key={k}><rect x={x - 9} y={y0 + 100 + k * 22} width={18} height={16} fill="var(--card)" stroke="#d97706" strokeWidth={1.5} />
+                  <text x={x} y={y0 + 111 + k * 22} fontSize={7} textAnchor="middle" fill="#d97706" fontWeight={700}>{t.split(" ")[0]}</text></g>
+              ))}
+              {busOf(c.id) && <text x={x} y={y0 + 2} fontSize={8} textAnchor="middle" fill={busOf(c.id)!.kind === "UPS" ? "#dc2626" : busOf(c.id)!.kind === "Socorro" ? "#d97706" : "#2563eb"} fontWeight={700}>{busOf(c.id)!.kind}</text>}
               <circle cx={x} cy={y0 + 162} r={12} fill="none" stroke={bad ? "#e5484d" : col} strokeWidth={2} />
               <text x={x} y={y0 + 166} fontSize={9} textAnchor="middle" className="fill-foreground">C{num}</text>
               <text x={x + 14} y={y0 + 46} fontSize={10} className={bad ? "fill-destructive" : "fill-foreground"} fontWeight={700}>{r.in}A {r.curve}</text>
@@ -239,6 +248,42 @@ export function SingleLineDiagram({ rows: rows0, panelName, mainLabel, onPick, r
       </svg>
       <div className="mt-2 text-xs text-muted-foreground">Clique numa saída para editar o circuito. Cores: L1 castanho, L2 preto, L3 cinzento, trifásico verde.</div>
     </div>
+  );
+}
+
+/* ---------------- Cabeça do quadro: fontes, inversor, MX, DST, UPS, barramentos ---------------- */
+function PanelHead({ equip: e, mainLabel }: { equip: PanelEquip; mainLabel: string }) {
+  const has = e.ats || e.ups || e.spd || e.mxFitted || (e.buses ?? []).length;
+  if (!has) return null;
+  const stroke = "currentColor";
+  const bx = (x: number, y: number, w: number, label: string, sub: string, col = stroke) => (
+    <g><rect x={x} y={y} width={w} height={34} rx={4} fill="none" stroke={col} strokeWidth={1.5} />
+      <text x={x + w / 2} y={y + 14} fontSize={10} fontWeight={700} textAnchor="middle" fill={col === stroke ? undefined : col} className={col === stroke ? "fill-foreground" : ""}>{label}</text>
+      <text x={x + w / 2} y={y + 27} fontSize={8} textAnchor="middle" className="fill-muted-foreground">{sub}</text></g>
+  );
+  const buses = e.buses ?? [];
+  const W = Math.max(720, 200 + buses.length * 150);
+  return (
+    <svg width={W} height={210} className="mb-3 rounded-lg border border-border bg-card text-foreground" style={{ minWidth: W }}>
+      <text x={12} y={18} fontSize={12} fontWeight={700} className="fill-foreground">Alimentação e equipamento do quadro</text>
+      {bx(30, 30, 110, "REDE", "Fonte normal")}
+      {e.ats && bx(200, 30, 120, "GERADOR", `${e.ats.genKVA} kVA · Icc≈${generatorIcc(e.ats.genKVA).icc.toFixed(0)}A`, "#d97706")}
+      <line x1={85} y1={64} x2={85} y2={88} stroke={stroke} strokeWidth={2} />
+      {e.ats && <><line x1={260} y1={64} x2={260} y2={88} stroke="#d97706" strokeWidth={2} />{bx(60, 88, 225, e.ats.mode === "Auto" ? "INVERSOR ATS" : "INVERSOR MANUAL I-0-II", "▲ encravamento mecânico")}</>}
+      {!e.ats && bx(30, 88, 110, "CORTE GERAL", mainLabel)}
+      {e.mxFitted && <><line x1={e.ats ? 285 : 140} y1={105} x2={e.ats ? 320 : 175} y2={105} stroke="#dc2626" strokeDasharray="4 3" strokeWidth={1.5} />{bx(e.ats ? 320 : 175, 88, 110, "BOBINA MX", "C1/C2 · emergência", "#dc2626")}</>}
+      <line x1={85} y1={122} x2={85} y2={150} stroke={stroke} strokeWidth={2} />
+      <line x1={20} y1={150} x2={W - 20} y2={150} stroke={stroke} strokeWidth={4} />
+      {e.spd && <><line x1={W - 120} y1={150} x2={W - 120} y2={160} stroke="#2563eb" strokeWidth={2} />{bx(W - 175, 160, 110, `DST ${e.spd.type}`, `${e.spd.iKA} kA · ${e.spd.backupA} A → PE`, "#2563eb")}</>}
+      {e.ups && bx(W - 175, 30, 110, "UPS", `${e.ups.kVA} kVA · ${e.ups.autonomyMin} min${e.ups.bypass ? " · bypass" : ""}`, "#dc2626")}
+      {buses.map((b, i) => {
+        const col = b.kind === "UPS" ? "#dc2626" : b.kind === "Socorro" ? "#d97706" : "#2563eb";
+        const x = 150 + i * 150;
+        return <g key={b.id}><line x1={x} y1={150} x2={x} y2={170} stroke={col} strokeWidth={2} /><line x1={x - 50} y1={172} x2={x + 50} y2={172} stroke={col} strokeWidth={4} />
+          <text x={x} y={188} fontSize={9} textAnchor="middle" fill={col} fontWeight={700}>{b.name.slice(0, 24)}</text>
+          <text x={x} y={200} fontSize={8} textAnchor="middle" className="fill-muted-foreground">{b.circuitIds.length} circuitos</text></g>;
+      })}
+    </svg>
   );
 }
 

@@ -1,6 +1,7 @@
 // Auditor de conformidade RTIEBT / IEC 60364 em tempo real
 import type { Circuit, CalcResult, FeederContext } from "./engine";
 import { checkRCD, rcdOf, type RCD } from "./rcd";
+import { checkEquipment, type PanelEquip } from "./equipment";
 
 export type AuditLevel = "critical" | "warn" | "info";
 export interface AuditIssue { level: AuditLevel; circuitId?: string; circuitName?: string; rule: string; msg: string; }
@@ -13,6 +14,9 @@ export function auditPanel(params: {
   imbalancePct: number;
   isQGE: boolean;
   rcds?: RCD[];
+  equip?: PanelEquip;
+  panelIb?: number;
+  iccKA?: number;
 }): { issues: AuditIssue[]; score: number } {
   const { computed, ctx, imbalancePct, isQGE, rcds } = params;
   const issues: AuditIssue[] = [];
@@ -44,6 +48,10 @@ export function auditPanel(params: {
     for (const m of k.warnings) issues.push({ level: "warn", rule: `DR ${d.label}`, msg: m });
   }
 
+  if (params.equip || isQGE) for (const q of checkEquipment(computed, params.equip ?? {}, isQGE, params.panelIb ?? 0, params.iccKA ?? 0)) {
+    const c = q.circuitId ? computed.find(x => x.c.id === q.circuitId)?.c : undefined;
+    issues.push({ level: q.level, rule: "Equipamento", msg: q.msg, circuitId: c?.id, circuitName: c?.name });
+  }
   if (imbalancePct >= 15) issues.push({ level: "critical", rule: "Equilíbrio", msg: `Desequilíbrio entre fases ${imbalancePct.toFixed(1)}% (≥ 15%)` });
   else if (imbalancePct >= 10) issues.push({ level: "warn", rule: "Equilíbrio", msg: `Desequilíbrio entre fases ${imbalancePct.toFixed(1)}% (≥ 10%)` });
   if (ctx.feederDeltaU > 1.5) issues.push({ level: "warn", rule: "Alimentação", msg: `ΔU na linha de interligação ${ctx.feederDeltaU.toFixed(2)}% > 1,5%` });
