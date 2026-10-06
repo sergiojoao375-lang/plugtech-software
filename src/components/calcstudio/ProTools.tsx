@@ -172,7 +172,7 @@ export function CapacitorBank({ pW, cosNow }: { pW: number; cosNow: number }) {
 }
 
 /* ---------------- Esquema unifilar ---------------- */
-const PH: Record<string, string> = { L1: "#8B4513", L2: "#111111", L3: "#808080" };
+const PH: Record<string, string> = { L1: "#8B4513", L2: "#DC2626", L3: "#808080" };
 export function SingleLineDiagram({ rows: rows0, panelName, mainLabel, onPick, rcds = [], equip = {}, tags }: { rows: Row[]; panelName: string; mainLabel: string; onPick: (c: Circuit) => void; rcds?: RCD[]; equip?: PanelEquip; tags?: Map<string, string[]> }) {
   const busOf = (id: string) => (equip.buses ?? []).find(b => b.circuitIds.includes(id));
   const idx = new Map(rows0.map((x, i) => [x.c.id, i]));
@@ -246,7 +246,7 @@ export function SingleLineDiagram({ rows: rows0, panelName, mainLabel, onPick, r
           );
         })}
       </svg>
-      <div className="mt-2 text-xs text-muted-foreground">Clique numa saída para editar o circuito. Cores: L1 castanho, L2 preto, L3 cinzento, trifásico verde.</div>
+      <div className="mt-2 text-xs text-muted-foreground">Clique numa saída para editar o circuito. Cores: L1 castanho, L2 vermelho, L3 cinzento, trifásico verde.</div>
     </div>
   );
 }
