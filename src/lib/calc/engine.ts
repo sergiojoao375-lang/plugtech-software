@@ -132,7 +132,9 @@ export function pickBreaker(ib: number, maxIz: number, breakers: number[] = STD_
 }
 
 export function suggestCurve(type: CircuitType): "B" | "C" | "D" {
+  // Curva automática (IEC 60898-1): motores/arranques → D; iluminação e tomadas → B; restante → C
   if (type === "AC" || type === "UAC") return "D";
+  if (type === "Iluminacao" || type === "Tomadas") return "B";
   return "C";
 }
 

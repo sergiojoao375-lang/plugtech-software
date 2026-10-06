@@ -756,7 +756,16 @@ const totals = useMemo(() => {
                       {r.in}
                     </td>
 
-                    <td className="px-2 py-1.5">{r.curve}</td>
+                    <td className="px-2 py-1.5">
+                      <select value={c.curve ?? "Auto"} onChange={e => patchCircuit(c.id, { curve: e.target.value === "Auto" ? undefined : e.target.value as "B" | "C" | "D" })}
+                        title={c.curve ? `Curva ${c.curve} escolhida manualmente` : `Automática: curva ${r.curve} sugerida pelo tipo de circuito`}
+                        className={`rounded border border-border bg-[color:var(--surface-2)] px-1 py-0.5 text-xs ${c.curve ? "font-semibold" : "text-muted-foreground"}`}>
+                        <option value="Auto">Auto ({r.curve})</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                      </select>
+                    </td>
                     <td className="px-2 py-1.5">{r.parallel > 1 ? `${r.parallel}×` : ""}{r.section} mm²{c.material === "Al" ? " Al" : ""}</td>
                     <td className={`px-2 py-1.5 ${izOver ? "bg-destructive/30 text-destructive font-semibold" : ""}`} title={izOver ? "Cabo em sobrecarga (Ib > Iz)" : undefined}>{r.iz}</td>
                     <td className={`px-2 py-1.5 ${duClass}`} title={`ΔU total ${totalDU.toFixed(2)}% (limite ${c.type === "Iluminacao" ? (isPT ? "6%" : "3%") : (isPT ? "8%" : "5%")})`}>{totalDU.toFixed(2)} %</td>
