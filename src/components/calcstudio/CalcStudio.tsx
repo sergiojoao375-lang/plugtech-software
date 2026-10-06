@@ -354,7 +354,7 @@ const totals = useMemo(() => {
 
   const selected = computed.find(x => x.c.id === selectedCircuitId);
 
-  const audit = useMemo(() => ctx ? auditPanel({ computed, ctx, imbalancePct: imb?.pct ?? 0, isQGE: panel?.panelKind === "QGE", rcds: panel?.rcds, equip: panel?.equip, panelIb: totals.ib, iccKA: panel ? panelIccKA(panel) : 0 }) : { issues: [], score: 100 }, [computed, ctx, imb, panel]);
+  const audit = useMemo(() => ctx ? auditPanel({ computed, ctx, imbalancePct: imb?.pct ?? 0, isQGE: panel?.panelKind === "QGE", rcds: panel?.rcds, equip: panel?.equip, panelIb: totals.ib, iccKA: panel ? panelIccKA(panel) : 0 }) : { issues: [], score: 100 }, [computed, ctx, imb, panel, totals.ib]);
   const realCos = useMemo(() => {
     const p = computed.reduce((a, x) => a + x.c.power, 0);
     const s = computed.reduce((a, x) => a + x.r.s, 0);
