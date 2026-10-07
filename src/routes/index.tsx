@@ -8,6 +8,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Software profissional de cálculo de instalações elétricas BT segundo RTIEBT. Dimensionamento, ΔU, Icc, equilíbrio de fases e exportação PDF/CSV." },
       { property: "og:title", content: "PLUGTECH CalcStudio" },
       { property: "og:description", content: "Cálculo profissional de quadros elétricos BT (RTIEBT). Tecnologia que liga soluções." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: () => <CalcStudio />,

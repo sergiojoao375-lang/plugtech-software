@@ -40,6 +40,10 @@
 
 :root {
   --radius: 0.5rem;
+  --phase-l1: #8B4513;
+  --phase-l2: #DC2626;
+  --phase-l3: #808080;
+  --phase-tri: #2E8B57;
   /* Dark mode by default (premium corporate) */
   --background: oklch(0.15 0.02 250);
   --foreground: oklch(0.97 0.005 250);
