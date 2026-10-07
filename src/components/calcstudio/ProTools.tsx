@@ -193,7 +193,7 @@ export function SingleLineDiagram({ rows: rows0, panelName, mainLabel, onPick, r
       <svg width={W} height={H} role="img" aria-label={`Esquema unifilar de ${panelName}`} className="border border-border bg-card text-foreground">
         <text x={16} y={24} className="fill-foreground" fontSize={14} fontWeight={700}>{panelName} — Esquema unifilar</text>
         <path d={`M40 34V43 M40 87V${busY}`} stroke="currentColor" fill="none" strokeWidth={2} />
-        <ElectricalSymbol kind="breaker" x={40} y={65} />
+        <ElectricalSymbol kind={mainLabel.startsWith("Interruptor") ? "switch" : "breaker"} x={40} y={65} />
         <text x={66} y={70} fontSize={11} className="fill-brand-green" fontWeight={700}>{mainLabel}</text>
         {(["L1", "L2", "L3"] as const).map((p, k) => (
           <g key={p}><line x1={20} y1={busY + k * 5} x2={W - 30} y2={busY + k * 5} stroke={PH[p]} strokeWidth={3} />
@@ -274,17 +274,17 @@ function PanelHead({ equip: e, mainLabel }: { equip: PanelEquip; mainLabel: stri
       <text x={190} y={130} fontSize={10} className="fill-foreground">{e.ats.mode === "Auto" ? "ATS automático" : "Inversor I-0-II"}</text>
       <text x={190} y={145} fontSize={9} className="fill-muted-foreground">Encravamento</text>
     </> : <path d="M90 92V178" stroke="currentColor" strokeWidth={2} />}
-    <ElectricalSymbol kind="breaker" x={90} y={200} />
+    <ElectricalSymbol kind={mainLabel.startsWith("Interruptor") ? "switch" : "breaker"} x={90} y={200} />
     <text x={115} y={190} fontSize={10} className="fill-brand-green">CORTE GERAL</text>
     <text x={115} y={205} fontSize={9} className="fill-muted-foreground">{mainLabel}</text>
     {e.mxFitted && <g className="text-destructive"><path d="M77 200H35V240H68" stroke="currentColor" fill="none" strokeDasharray="4 3" /><ElectricalSymbol kind="coil" x={90} y={240} /><text x={120} y={245} fontSize={10} fill="currentColor">MX · C1/C2</text></g>}
     <path d={`M90 222V290 M30 290H${W - 30}`} stroke="currentColor" strokeWidth={2} fill="none" />
     {e.ups && <g className="text-brand-blue">
-      <path d={`M${W - 300} 290V93 M${W - 300} 137V260H${W - 200}V290`} stroke="currentColor" fill="none" strokeWidth={2} />
+      <path d={`M${W - 300} 290V93 M${W - 300} 137V250H${W - 200}`} stroke="currentColor" fill="none" strokeWidth={2} />
       <ElectricalSymbol kind="ups" x={W - 300} y={115} />
       <text x={W - 278} y={111} fontSize={11} fill="currentColor">UPS · {e.ups.kVA} kVA</text>
       <text x={W - 278} y={127} fontSize={9} className="fill-muted-foreground">{e.ups.autonomyMin} min</text>
-      {e.ups.bypass && <><path d={`M${W - 300} 165H${W - 350}V137 M${W - 350} 93V70H${W - 200}V260`} stroke="currentColor" fill="none" /><ElectricalSymbol kind="switch" x={W - 350} y={115} /><text x={W - 383} y={62} fontSize={9} className="fill-muted-foreground">Bypass</text></>}
+      {e.ups.bypass && <><path d={`M${W - 300} 165H${W - 350}V137 M${W - 350} 93V70H${W - 200}V250`} stroke="currentColor" fill="none" /><ElectricalSymbol kind="switch" x={W - 350} y={115} /><text x={W - 383} y={62} fontSize={9} className="fill-muted-foreground">Bypass</text></>}
     </g>}
     {e.spd && <g className="text-brand-blue">
       <path d={`M${W - 65} 290V308 M${W - 65} 352V358`} stroke="currentColor" fill="none" />
@@ -295,7 +295,7 @@ function PanelHead({ equip: e, mainLabel }: { equip: PanelEquip; mainLabel: stri
     {buses.map((b, i) => {
       const x = 100 + i * 180;
       return <g key={b.id} className={b.kind === "UPS" ? "text-destructive" : b.kind === "Socorro" ? "text-warning" : "text-brand-blue"}>
-        <path d={`M${x} 290V330 M${x - 55} 330H${x + 55}`} stroke="currentColor" fill="none" strokeWidth={3} />
+        <path d={b.kind === "UPS" && e.ups ? `M${W - 200} 250V275H${x}V284 M${x} 296V330 M${x - 8} 296Q${x} 280 ${x + 8} 296 M${x - 55} 330H${x + 55}` : `M${x} 290V330 M${x - 55} 330H${x + 55}`} stroke="currentColor" fill="none" strokeWidth={3} />
         <text x={x} y={350} fontSize={9} textAnchor="middle" fill="currentColor" fontWeight={700}>{b.name.slice(0, 26)}</text>
         <text x={x} y={366} fontSize={9} textAnchor="middle" className="fill-muted-foreground">{b.circuitIds.length} circuitos</text>
       </g>;
