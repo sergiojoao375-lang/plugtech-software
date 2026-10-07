@@ -15,8 +15,8 @@ export const MX_TRIGGERS: Record<MxTrigger, string> = {
   HVAC: "Climatização e bombas (AVAC) de grande porte",
 };
 
-export interface ATS { mode: "Manual" | "Auto"; genKVA: number; }
-export interface UPS { kVA: number; autonomyMin: number; bypass: boolean; }
+export interface ATS { mode: "Manual" | "Auto"; genKVA: number; phases?: 1 | 3; }
+export interface UPS { kVA: number; autonomyMin: number; bypass: boolean; phases?: 1 | 3; pf?: number; }
 
 export type BusKind = "Normal" | "Socorro" | "UPS" | "Pente";
 export interface Bus { id: string; name: string; kind: BusKind; circuitIds: string[]; }
@@ -114,9 +114,39 @@ export function busIb(bus: Bus, rows: Row[]) {
   return rows.filter(x => bus.circuitIds.includes(x.c.id)).reduce((s, x) => s + x.r.ib, 0);
 }
 
-/** Icc em regime de gerador (≈ 3×In) e de UPS (≈ 2×In), em A. */
-export function generatorIcc(kVA: number, v = 400) { const In = (kVA * 1000) / (Math.sqrt(3) * v); return { In, icc: 3 * In }; }
-export function upsIcc(kVA: number, v = 400) { const In = (kVA * 1000) / (Math.sqrt(3) * v); return { In, icc: 2 * In }; }
+/** Corrente nominal por fase de uma fonte (A). Mono: S/U0; Tri: S/(√3·U). */
+export function sourceIn(kVA: number, phases: 1 | 3 = 3, u0 = 230, u = 400) {
+  return phases === 1 ? (kVA * 1000) / u0 : (kVA * 1000) / (Math.sqrt(3) * u);
+}
+/** Gerador: Icc mantida ≈ 3×In (alternador com excitação PMG/AREP; sem ela pode ser < 1×In). */
+export function generatorIcc(kVA: number, phases: 1 | 3 = 3) { const In = sourceIn(kVA, phases); return { In, icc: 3 * In }; }
+/** UPS (inversor em bateria): limitação electrónica ≈ 2×In durante ~100 ms (típico 1,5–3×). */
+export function upsIcc(kVA: number, phases: 1 | 3 = 3) { const In = sourceIn(kVA, phases); return { In, icc: 2 * In }; }
+
+/** Corrente da fase mais carregada (A): monofásicas somam na fase atribuída, trifásicas em todas. */
+export function worstPhaseIb(list: Row[]) {
+  const s = { L1: 0, L2: 0, L3: 0 };
+  for (const { c, r } of list) {
+    if (c.phase === "Tri") { s.L1 += r.ib; s.L2 += r.ib; s.L3 += r.ib; }
+    else s[c.phaseAssign ?? "L1"] += r.ib;
+  }
+  return Math.max(s.L1, s.L2, s.L3);
+}
+/** Para fonte monofásica todas as cargas somam no mesmo condutor (tri = √3·Ib·400/230 ≈ 3·Ib por fase de 230 V). */
+function sourceLoadA(list: Row[], phases: 1 | 3) {
+  if (phases === 3) return worstPhaseIb(list);
+  return list.reduce((s, { c, r }) => s + (c.phase === "Tri" ? r.ib * 3 : r.ib), 0);
+}
+/** Potência activa total (kW) das cargas. */
+function loadKW(list: Row[]) { return list.reduce((s, { c }) => s + c.power, 0) / 1000; }
+
+/** Corrente de defeito no fim do circuito alimentado por uma fonte limitada (A). */
+function faultAtEnd(sourceIcc: number, c: Circuit, r: CalcResult, u0 = 230) {
+  const zs = u0 / Math.max(1, sourceIcc);
+  const rho = c.material === "Al" ? 0.036 : 0.0225;
+  const zl = (2 * rho * c.length) / Math.max(1, r.section * r.parallel); // laço fase-neutro/PE
+  return u0 / (zs + zl);
+}
 
 const MAG: Record<string, number> = { B: 5, C: 10, D: 20 };
 
@@ -132,24 +162,44 @@ export function checkEquipment(rows: Row[], e: PanelEquip, isQGE: boolean, panel
   const buses = e.buses ?? [];
   const busOf = (id: string) => buses.find(b => b.circuitIds.includes(id));
   if (e.ats) {
-    const g = generatorIcc(e.ats.genKVA);
+    const ph = e.ats.phases ?? 3;
+    const g = generatorIcc(e.ats.genKVA, ph);
     const em = buses.filter(b => b.kind === "Socorro" || b.kind === "UPS");
-    const load = em.length ? em.reduce((s, b) => s + busIb(b, rows), 0) : panelIb;
-    if (load > g.In) out.push({ level: "critical", msg: `Gerador ${e.ats.genKVA} kVA (In ${g.In.toFixed(0)} A) insuficiente para ${load.toFixed(0)} A em socorro` });
-    for (const { c, r } of rows) {
-      const b = busOf(c.id);
-      if (em.length && !(b && (b.kind === "Socorro" || b.kind === "UPS"))) continue;
-      if (r.in * (MAG[r.curve] ?? 10) > g.icc) out.push({ level: "warn", circuitId: c.id, msg: `${c.name}: em gerador (Icc ≈ ${g.icc.toFixed(0)} A) o disparo magnético ${r.in}A ${r.curve} não é garantido — usar curva B ou calibre menor` });
+    const fed = em.length ? rows.filter(x => em.some(b => b.circuitIds.includes(x.c.id))) : rows;
+    const load = em.length ? sourceLoadA(fed, ph) : (ph === 3 ? Math.max(worstPhaseIb(rows), panelIb > 0 ? 0 : 0) : sourceLoadA(rows, ph));
+    const pct = g.In > 0 ? (load / g.In) * 100 : 999;
+    if (pct > 100) out.push({ level: "critical", msg: `Gerador ${e.ats.genKVA} kVA (In ${g.In.toFixed(0)} A/fase) insuficiente: fase mais carregada ${load.toFixed(0)} A (${pct.toFixed(0)} %)` });
+    else if (pct > 80) out.push({ level: "warn", msg: `Gerador a ${pct.toFixed(0)} % da potência (${load.toFixed(0)} / ${g.In.toFixed(0)} A) — recomendado ≤ 80 % para arranques e reserva` });
+    else out.push({ level: "info", msg: `Gerador ${e.ats.genKVA} kVA: In ${g.In.toFixed(0)} A/fase, carga ${load.toFixed(0)} A (${pct.toFixed(0)} %), Icc ≈ ${g.icc.toFixed(0)} A` });
+    const motor = fed.filter(x => x.c.type === "AC" || x.c.type === "UAC").reduce((m, x) => Math.max(m, x.r.ib), 0);
+    if (motor > 0 && motor * 6 > g.icc) out.push({ level: "warn", msg: `Maior motor (${motor.toFixed(0)} A, arranque ≈ ${(motor * 6).toFixed(0)} A) excede a capacidade do gerador — usar arrancador suave/VSD ou gerador maior` });
+    for (const { c, r } of fed) {
+      const ia = r.in * (MAG[r.curve] ?? 10);
+      const ik = faultAtEnd(g.icc, c, r);
+      if (ia > ik) out.push({ level: "warn", circuitId: c.id, msg: `${c.name}: em gerador o defeito no fim do cabo ≈ ${ik.toFixed(0)} A < disparo magnético ${ia.toFixed(0)} A (${r.in}A ${r.curve}) — usar curva B, calibre menor ou maior secção` });
     }
   }
   if (e.ups) {
-    const u = upsIcc(e.ups.kVA);
+    const ph = e.ups.phases ?? 3;
+    const pf = e.ups.pf ?? 0.9;
+    const u = upsIcc(e.ups.kVA, ph);
     const ub = buses.filter(b => b.kind === "UPS");
-    const load = ub.reduce((s, b) => s + busIb(b, rows), 0);
+    const fed = rows.filter(x => ub.some(b => b.circuitIds.includes(x.c.id)));
+    const load = sourceLoadA(fed, ph);
+    const kw = loadKW(fed);
+    const kwMax = e.ups.kVA * pf;
     if (!ub.length) out.push({ level: "warn", msg: "UPS definida mas sem barramento UPS — crie um e atribua as cargas críticas" });
-    if (load > u.In) out.push({ level: "critical", msg: `UPS ${e.ups.kVA} kVA (In ${u.In.toFixed(0)} A) insuficiente para ${load.toFixed(0)} A` });
-    for (const b of ub) for (const { c, r } of rows.filter(x => b.circuitIds.includes(x.c.id))) {
-      if (r.in * (MAG[r.curve] ?? 10) > u.icc) out.push({ level: "warn", circuitId: c.id, msg: `${c.name}: em bateria a UPS limita a ≈ ${u.icc.toFixed(0)} A — usar curva B` });
+    if (load > u.In) out.push({ level: "critical", msg: `UPS ${e.ups.kVA} kVA (In ${u.In.toFixed(0)} A/fase) insuficiente: ${load.toFixed(0)} A na fase mais carregada` });
+    if (kw > kwMax) out.push({ level: "critical", msg: `UPS ${e.ups.kVA} kVA × FP ${pf} = ${kwMax.toFixed(1)} kW < ${kw.toFixed(1)} kW de carga` });
+    else if (fed.length && kw > kwMax * 0.8) out.push({ level: "warn", msg: `UPS a ${((kw / kwMax) * 100).toFixed(0)} % da potência activa — recomendado ≤ 80 %` });
+    if (fed.length) {
+      const wh = (kw * 1000 * e.ups.autonomyMin / 60) / 0.9; // rendimento do inversor ≈ 90 %
+      out.push({ level: "info", msg: `Baterias UPS: ${kw.toFixed(1)} kW × ${e.ups.autonomyMin} min ⇒ ≈ ${(wh / 1000).toFixed(1)} kWh úteis (≈ ${Math.ceil(wh / 0.8 / 12 / 0.8)} Ah a 12 V eq., DoD 80 %) — confirmar com fabricante` });
+    }
+    for (const { c, r } of fed) {
+      const ia = r.in * (MAG[r.curve] ?? 10);
+      const ik = faultAtEnd(u.icc, c, r);
+      if (ia > ik) out.push({ level: "warn", circuitId: c.id, msg: `${c.name}: em bateria a UPS dá ≈ ${ik.toFixed(0)} A no fim do cabo < disparo magnético ${ia.toFixed(0)} A (${r.in}A ${r.curve}) — usar curva B ou calibre menor` });
     }
     if (!e.ups.bypass) out.push({ level: "info", msg: "UPS sem bypass de manutenção" });
   }
