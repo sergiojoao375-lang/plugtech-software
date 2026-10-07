@@ -1,5 +1,5 @@
 // Auditor de conformidade RTIEBT / IEC 60364 em tempo real
-import type { Circuit, CalcResult, FeederContext } from "./engine";
+import { suggestCurve, type Circuit, type CalcResult, type FeederContext } from "./engine";
 import { checkRCD, rcdOf, type RCD } from "./rcd";
 import { checkEquipment, type PanelEquip } from "./equipment";
 
@@ -41,6 +41,17 @@ export function auditPanel(params: {
     } else if (NEED_RCD.has(c.type) && c.rcd30 === false) issues.push({ ...base, level: "critical", rule: "RTIEBT 411/701", msg: "Circuito sem diferencial de alta sensibilidade (≤ 30 mA)" });
     if (r.icuKA > 6) issues.push({ ...base, level: r.icuKA > 25 ? "warn" : "info", rule: "IEC 60898/60947", msg: `Poder de corte exigido ≥ ${r.icuKA} kA (aparelhagem doméstica de 6 kA insuficiente)` });
     if (r.parallel > 1) issues.push({ ...base, level: "info", rule: "RTIEBT 523.6", msg: `${r.parallel} condutores em paralelo por fase — garantir mesma secção, comprimento e material` });
+    if (c.curve) {
+      const sug = suggestCurve(c.type);
+      if (c.curve !== sug) {
+        const rank = { B: 0, C: 1, D: 2 } as const;
+        const higher = rank[c.curve] > rank[sug];
+        const lvl: AuditLevel = higher && rank[c.curve] - rank[sug] >= 2 ? "critical" : "warn";
+        issues.push({ ...base, level: lvl, rule: "IEC 60898-1 / RTIEBT 411", msg: higher
+          ? `Curva ${c.curve} escolhida manualmente; recomendada ${sug} para ${c.type} — disparo magnético mais lento (${c.curve === "D" ? "10–20" : "5–10"}×In), risco de não cortar em tempo útil em defeito com cabo longo`
+          : `Curva ${c.curve} escolhida manualmente; recomendada ${sug} para ${c.type} — risco de disparos intempestivos no arranque` });
+      }
+    }
   }
   for (const d of rcds ?? []) {
     const k = checkRCD(d, computed);
