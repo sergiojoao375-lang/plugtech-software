@@ -9,6 +9,7 @@ import { curvePoints, selectivityLimit, type CurveKind } from "@/lib/calc/curves
 import type { RCD } from "@/lib/calc/rcd";
 import type { PanelEquip } from "@/lib/calc/equipment";
 import { generatorIcc } from "@/lib/calc/equipment";
+import { ElectricalSymbol, CONTROL_SYMBOL, SYMBOL_LEGEND } from "./ElectricalSymbol";
 
 type Row = { c: Circuit; r: CalcResult };
 const inputCls = "w-full rounded border border-border bg-[color:var(--surface-2)] px-1 py-0.5 text-xs";
@@ -172,119 +173,134 @@ export function CapacitorBank({ pW, cosNow }: { pW: number; cosNow: number }) {
 }
 
 /* ---------------- Esquema unifilar ---------------- */
-const PH: Record<string, string> = { L1: "#8B4513", L2: "#DC2626", L3: "#808080" };
-export function SingleLineDiagram({ rows: rows0, panelName, mainLabel, onPick, rcds = [], equip = {}, tags }: { rows: Row[]; panelName: string; mainLabel: string; onPick: (c: Circuit) => void; rcds?: RCD[]; equip?: PanelEquip; tags?: Map<string, string[]> }) {
-  const busOf = (id: string) => (equip.buses ?? []).find(b => b.circuitIds.includes(id));
+const PH: Record<string, string> = { L1: "var(--phase-l1)", L2: "var(--phase-l2)", L3: "var(--phase-l3)" };
+export function SingleLineDiagram({ rows: rows0, panelName, mainLabel, onPick, rcds = [], equip = {} }: { rows: Row[]; panelName: string; mainLabel: string; onPick: (c: Circuit) => void; rcds?: RCD[]; equip?: PanelEquip; tags?: Map<string, string[]> }) {
   const idx = new Map(rows0.map((x, i) => [x.c.id, i]));
-  // agrupa os circuitos por diferencial (ordem dos DR), depois os sem DR
   const groups: Array<{ d?: RCD; rows: Row[] }> = rcds.map(d => ({ d, rows: rows0.filter(x => d.circuitIds.includes(x.c.id)) })).filter(g => g.rows.length);
   const loose = rows0.filter(x => !rcds.some(d => d.circuitIds.includes(x.c.id)));
   if (loose.length) groups.push({ rows: loose });
   const rows = groups.flatMap(g => g.rows);
-  const hasRcd = groups.some(g => g.d);
-  const off = hasRcd ? 70 : 0;
-  const step = 90, busY = 110, n = Math.max(1, rows.length);
-  const W = 80 + n * step, H = 470 + off;
+  const modulesOf = (id: string) => (equip.controls ?? []).filter(m => m.circuitIds.includes(id)).flatMap(m => m.kind === "ContactorTermico" ? [{ ...m, symbol: "contactor" as const }, { ...m, label: `${m.label} RT`, symbol: "thermal" as const }] : [{ ...m, symbol: CONTROL_SYMBOL[m.kind] }]);
+  const maxModules = Math.max(0, ...rows.map(({ c }) => modulesOf(c.id).length));
+  const off = groups.some(g => g.d) ? 100 : 0;
+  const step = 160, busY = 125, W = Math.max(720, 80 + rows.length * step);
+  const loadY = busY + 10 + off + 150 + maxModules * 60;
+  const H = loadY + 195;
   let pos = 0;
   return (
     <div className="overflow-auto p-4">
       <PanelHead equip={equip} mainLabel={mainLabel} />
-      <svg width={W} height={H} className="rounded-lg border border-border bg-card" style={{ minWidth: W }}>
+      <svg width={W} height={H} role="img" aria-label={`Esquema unifilar de ${panelName}`} className="border border-border bg-card text-foreground">
         <text x={16} y={24} className="fill-foreground" fontSize={14} fontWeight={700}>{panelName} — Esquema unifilar</text>
-        <line x1={40} y1={34} x2={40} y2={60} stroke="currentColor" className="text-foreground" strokeWidth={2} />
-        <line x1={40} y1={60} x2={52} y2={80} stroke="currentColor" className="text-foreground" strokeWidth={2} />
-        <line x1={40} y1={80} x2={40} y2={busY} stroke="currentColor" className="text-foreground" strokeWidth={2} />
-        <text x={58} y={72} fontSize={11} className="fill-[color:var(--brand-green)]" fontWeight={700}>{mainLabel}</text>
+        <path d={`M40 34V43 M40 87V${busY}`} stroke="currentColor" fill="none" strokeWidth={2} />
+        <ElectricalSymbol kind={mainLabel.startsWith("Interruptor") ? "switch" : "breaker"} x={40} y={65} />
+        <text x={66} y={70} fontSize={11} className="fill-brand-green" fontWeight={700}>{mainLabel}</text>
         {(["L1", "L2", "L3"] as const).map((p, k) => (
-          <g key={p}><line x1={20} y1={busY + k * 5} x2={W - 20} y2={busY + k * 5} stroke={PH[p]} strokeWidth={3} />
-            <text x={W - 18} y={busY + k * 5 + 3} fontSize={8} className="fill-muted-foreground">{p}</text></g>
+          <g key={p}><line x1={20} y1={busY + k * 5} x2={W - 30} y2={busY + k * 5} stroke={PH[p]} strokeWidth={3} />
+            <text x={W - 25} y={busY + k * 5 + 3} fontSize={8} className="fill-muted-foreground">{p}</text></g>
         ))}
         {groups.map((g, gi) => {
           const start = pos; pos += g.rows.length;
           if (!g.d) return null;
-          const x1 = 70 + start * step, x2 = 70 + (pos - 1) * step, xm = (x1 + x2) / 2, y = busY + 10;
-          return (
-            <g key={gi}>
-              <line x1={xm} y1={y} x2={xm} y2={y + 14} stroke="#2563eb" strokeWidth={2} />
-              <rect x={xm - 14} y={y + 14} width={28} height={26} fill="none" stroke="#2563eb" strokeWidth={2} />
-              <ellipse cx={xm} cy={y + 27} rx={8} ry={5} fill="none" stroke="#2563eb" strokeWidth={1.5} />
-              <line x1={xm} y1={y + 40} x2={xm} y2={y + 56} stroke="#2563eb" strokeWidth={2} />
-              <line x1={x1} y1={y + 56} x2={x2} y2={y + 56} stroke="#2563eb" strokeWidth={3} />
-              <text x={xm + 18} y={y + 24} fontSize={10} fontWeight={700} fill="#2563eb">{g.d.label}</text>
-              <text x={xm + 18} y={y + 36} fontSize={9} className="fill-muted-foreground">{g.d.inA}A {g.d.iAnmA}mA {g.d.poles}P {g.d.kind}</text>
-            </g>
-          );
+          const x1 = 80 + start * step, x2 = 80 + (pos - 1) * step, xm = (x1 + x2) / 2, y = busY + 10;
+          return <g key={gi} className="text-brand-blue">
+            <path d={`M${xm} ${y}V${y + 10} M${xm} ${y + 54}V${y + 76} M${x1} ${y + 76}H${x2}`} stroke="currentColor" fill="none" strokeWidth={2} />
+            <ElectricalSymbol kind="rcd" x={xm} y={y + 32} />
+            <text x={xm + 24} y={y + 22} fontSize={10} fontWeight={700} fill="currentColor">{g.d.label}</text>
+            <text x={xm + 24} y={y + 38} fontSize={9} className="fill-muted-foreground">{g.d.inA} A · {g.d.iAnmA} mA</text>
+            <text x={xm + 24} y={y + 52} fontSize={9} className="fill-muted-foreground">{g.d.poles}P · Tipo {g.d.kind}</text>
+          </g>;
         })}
         {rows.map(({ c, r }, i) => {
           const inR = rcds.some(d => d.circuitIds.includes(c.id));
-          const x = 70 + i * step, y0 = busY + 10 + off;
-          const col = c.phase === "Tri" ? "#2E8B57" : PH[c.phaseAssign ?? "L1"];
-          const bad = r.errors.length > 0;
+          const bus = (equip.buses ?? []).find(b => b.circuitIds.includes(c.id));
+          const x = 80 + i * step, y0 = busY + 10 + off;
+          const col = c.phase === "Tri" ? "var(--phase-tri)" : PH[c.phaseAssign ?? "L1"];
+          const mods = modulesOf(c.id);
           const num = (idx.get(c.id) ?? i) + 1;
-          return (
-            <g key={c.id} className="cursor-pointer" onClick={() => onPick(c)}>
-              <rect x={x - 40} y={y0} width={80} height={H - y0 - 10} fill="transparent" className="hover:fill-[color:var(--brand-blue)]/10" />
-              {off > 0 && <line x1={x} y1={inR ? y0 - 14 : busY + 10} x2={x} y2={y0} stroke={col} strokeWidth={2} />}
-              <line x1={x} y1={y0} x2={x} y2={y0 + 30} stroke={col} strokeWidth={2} />
-              <line x1={x} y1={y0 + 30} x2={x + 10} y2={y0 + 50} stroke={col} strokeWidth={2} />
-              <line x1={x - 4} y1={y0 + 26} x2={x + 4} y2={y0 + 34} stroke={col} strokeWidth={2} />
-              <line x1={x + 4} y1={y0 + 26} x2={x - 4} y2={y0 + 34} stroke={col} strokeWidth={2} />
-              <line x1={x} y1={y0 + 50} x2={x} y2={y0 + 150} stroke={col} strokeWidth={2} />
-              {(tags?.get(c.id) ?? []).slice(0, 2).map((t, k) => (
-                <g key={k}><rect x={x - 9} y={y0 + 100 + k * 22} width={18} height={16} fill="var(--card)" stroke="#d97706" strokeWidth={1.5} />
-                  <text x={x} y={y0 + 111 + k * 22} fontSize={7} textAnchor="middle" fill="#d97706" fontWeight={700}>{t.split(" ")[0]}</text></g>
-              ))}
-              {busOf(c.id) && <text x={x} y={y0 + 2} fontSize={8} textAnchor="middle" fill={busOf(c.id)!.kind === "UPS" ? "#dc2626" : busOf(c.id)!.kind === "Socorro" ? "#d97706" : "#2563eb"} fontWeight={700}>{busOf(c.id)!.kind}</text>}
-              <circle cx={x} cy={y0 + 162} r={12} fill="none" stroke={bad ? "#e5484d" : col} strokeWidth={2} />
-              <text x={x} y={y0 + 166} fontSize={9} textAnchor="middle" className="fill-foreground">C{num}</text>
-              <text x={x + 14} y={y0 + 46} fontSize={10} className={bad ? "fill-destructive" : "fill-foreground"} fontWeight={700}>{r.in}A {r.curve}</text>
-              <text x={x + 14} y={y0 + 58} fontSize={9} className="fill-muted-foreground">{r.icuKA} kA</text>
-              <text x={x + 4} y={y0 + 95} fontSize={9} className="fill-muted-foreground">{r.parallel > 1 ? `${r.parallel}×` : ""}{r.section}mm²</text>
-              <text transform={`translate(${x + 4},${y0 + 184}) rotate(60)`} fontSize={10} className="fill-foreground">{c.name.slice(0, 26)}</text>
-              <text transform={`translate(${x - 8},${y0 + 184}) rotate(60)`} fontSize={9} className="fill-muted-foreground">{(c.power / 1000).toFixed(2)} kW · {c.phase === "Tri" ? "3F" : c.phaseAssign ?? "1F"}</text>
-            </g>
-          );
+          return <g key={c.id} className="cursor-pointer" onClick={() => onPick(c)} color={col}>
+            <title>{`C${num} · ${c.name} · ${c.cable} · ${r.section} mm²`}</title>
+            <rect x={x - 42} y={y0} width={step - 4} height={H - y0 - 10} fill="transparent" className="hover:fill-brand-blue/10" />
+            <path d={`M${x} ${inR ? busY + 86 : busY + 10}V${y0 + 13} M${x} ${y0 + 57}V${mods.length ? y0 + 108 : loadY - 22}`} stroke="currentColor" fill="none" strokeWidth={2} />
+            <ElectricalSymbol kind="breaker" x={x} y={y0 + 35} />
+            <text x={x + 24} y={y0 + 34} fontSize={10} className={r.errors.length ? "fill-destructive" : "fill-foreground"} fontWeight={700}>{r.in} A · {r.curve}</text>
+            <text x={x + 24} y={y0 + 49} fontSize={9} className="fill-muted-foreground">{r.icuKA} kA</text>
+            <text x={x + 24} y={y0 + 70} fontSize={10} className="fill-foreground">{c.cable}</text>
+            <text x={x + 24} y={y0 + 85} fontSize={9} className="fill-muted-foreground">{r.parallel > 1 ? `${r.parallel}×` : ""}{r.section} mm² · {c.material ?? "Cu"}</text>
+            {mods.map((m, k) => {
+              const cy = y0 + 130 + k * 60;
+              return <g key={`${m.id}-${k}`}>
+                <ElectricalSymbol kind={m.symbol} x={x} y={cy} />
+                <path d={`M${x} ${cy + 22}V${k === mods.length - 1 ? loadY - 22 : cy + 38}`} stroke="currentColor" fill="none" strokeWidth={2} />
+                <text x={x + 25} y={cy - 4} fontSize={10} className="fill-warning" fontWeight={700}>{m.label}</text>
+                <text x={x + 25} y={cy + 10} fontSize={8} className="fill-muted-foreground">{m.kind === "ContactorTermico" ? m.symbol === "thermal" ? "Relé térmico" : "Contactor" : m.kind}</text>
+                <text x={x + 25} y={cy + 23} fontSize={8} className="fill-muted-foreground">{m.inputs} E · {m.outputs} S · {m.aux} aux</text>
+              </g>;
+            })}
+            <ElectricalSymbol kind={c.type === "Iluminacao" ? "lamp" : c.type === "Tomadas" ? "socket" : c.type === "AC" || c.type === "UAC" ? "motor" : "terminal"} x={x} y={loadY} />
+            <text x={x + 24} y={loadY + 3} fontSize={10} className="fill-foreground" fontWeight={700}>C{num}</text>
+            {bus && <text x={x + 24} y={loadY + 18} fontSize={9} className="fill-brand-blue">{bus.kind}</text>}
+            <text transform={`translate(${x},${loadY + 40}) rotate(60)`} fontSize={10} className="fill-foreground">{c.name.slice(0, 28)}</text>
+            <text transform={`translate(${x - 16},${loadY + 40}) rotate(60)`} fontSize={9} className="fill-muted-foreground">{(c.power / 1000).toFixed(2)} kW · {c.phase === "Tri" ? "3F" : c.phaseAssign ?? "1F"}</text>
+          </g>;
         })}
       </svg>
-      <div className="mt-2 text-xs text-muted-foreground">Clique numa saída para editar o circuito. Cores: L1 castanho, L2 vermelho, L3 cinzento, trifásico verde.</div>
+      <div className="mt-2 flex gap-4 text-xs text-muted-foreground"><span>L1 castanho</span><span>L2 vermelho</span><span>L3 cinzento</span><span>Trifásico verde</span></div>
+      <div className="mt-5 border-t border-border pt-4">
+        <h3 className="mb-3 text-xs font-bold">SIMBOLOGIA</h3>
+        <div className="grid min-w-[600px] grid-cols-3 gap-x-6 gap-y-2">
+          {SYMBOL_LEGEND.map(([kind, label]) => <div key={kind} className="flex items-center gap-2 text-xs text-muted-foreground"><svg width={48} height={52} className="shrink-0 text-foreground" aria-hidden="true"><ElectricalSymbol kind={kind} x={24} y={26} /></svg><span>{label}</span></div>)}
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ---------------- Cabeça do quadro: fontes, inversor, MX, DST, UPS, barramentos ---------------- */
+/* ---------------- Fontes, inversor, MX, DST, UPS, barramentos ---------------- */
 function PanelHead({ equip: e, mainLabel }: { equip: PanelEquip; mainLabel: string }) {
-  const has = e.ats || e.ups || e.spd || e.mxFitted || (e.buses ?? []).length;
-  if (!has) return null;
-  const stroke = "currentColor";
-  const bx = (x: number, y: number, w: number, label: string, sub: string, col = stroke) => (
-    <g><rect x={x} y={y} width={w} height={34} rx={4} fill="none" stroke={col} strokeWidth={1.5} />
-      <text x={x + w / 2} y={y + 14} fontSize={10} fontWeight={700} textAnchor="middle" fill={col === stroke ? undefined : col} className={col === stroke ? "fill-foreground" : ""}>{label}</text>
-      <text x={x + w / 2} y={y + 27} fontSize={8} textAnchor="middle" className="fill-muted-foreground">{sub}</text></g>
-  );
+  if (!(e.ats || e.ups || e.spd || e.mxFitted || e.buses?.length)) return null;
   const buses = e.buses ?? [];
-  const W = Math.max(720, 200 + buses.length * 150);
-  return (
-    <svg width={W} height={210} className="mb-3 rounded-lg border border-border bg-card text-foreground" style={{ minWidth: W }}>
-      <text x={12} y={18} fontSize={12} fontWeight={700} className="fill-foreground">Alimentação e equipamento do quadro</text>
-      {bx(30, 30, 110, "REDE", "Fonte normal")}
-      {e.ats && bx(200, 30, 120, "GERADOR", `${e.ats.genKVA} kVA · Icc≈${generatorIcc(e.ats.genKVA).icc.toFixed(0)}A`, "#d97706")}
-      <line x1={85} y1={64} x2={85} y2={88} stroke={stroke} strokeWidth={2} />
-      {e.ats && <><line x1={260} y1={64} x2={260} y2={88} stroke="#d97706" strokeWidth={2} />{bx(60, 88, 225, e.ats.mode === "Auto" ? "INVERSOR ATS" : "INVERSOR MANUAL I-0-II", "▲ encravamento mecânico")}</>}
-      {!e.ats && bx(30, 88, 110, "CORTE GERAL", mainLabel)}
-      {e.mxFitted && <><line x1={e.ats ? 285 : 140} y1={105} x2={e.ats ? 320 : 175} y2={105} stroke="#dc2626" strokeDasharray="4 3" strokeWidth={1.5} />{bx(e.ats ? 320 : 175, 88, 110, "BOBINA MX", "C1/C2 · emergência", "#dc2626")}</>}
-      <line x1={85} y1={122} x2={85} y2={150} stroke={stroke} strokeWidth={2} />
-      <line x1={20} y1={150} x2={W - 20} y2={150} stroke={stroke} strokeWidth={4} />
-      {e.spd && <><line x1={W - 120} y1={150} x2={W - 120} y2={160} stroke="#2563eb" strokeWidth={2} />{bx(W - 175, 160, 110, `DST ${e.spd.type}`, `${e.spd.iKA} kA · ${e.spd.backupA} A → PE`, "#2563eb")}</>}
-      {e.ups && bx(W - 175, 30, 110, "UPS", `${e.ups.kVA} kVA · ${e.ups.autonomyMin} min${e.ups.bypass ? " · bypass" : ""}`, "#dc2626")}
-      {buses.map((b, i) => {
-        const col = b.kind === "UPS" ? "#dc2626" : b.kind === "Socorro" ? "#d97706" : "#2563eb";
-        const x = 150 + i * 150;
-        return <g key={b.id}><line x1={x} y1={150} x2={x} y2={170} stroke={col} strokeWidth={2} /><line x1={x - 50} y1={172} x2={x + 50} y2={172} stroke={col} strokeWidth={4} />
-          <text x={x} y={188} fontSize={9} textAnchor="middle" fill={col} fontWeight={700}>{b.name.slice(0, 24)}</text>
-          <text x={x} y={200} fontSize={8} textAnchor="middle" className="fill-muted-foreground">{b.circuitIds.length} circuitos</text></g>;
-      })}
-    </svg>
-  );
+  const W = Math.max(800, 420 + buses.length * 180);
+  return <svg width={W} height={430} role="img" aria-label="Alimentação e equipamento do quadro" className="mb-3 border border-border bg-card text-foreground">
+    <text x={16} y={24} fontSize={12} fontWeight={700} className="fill-foreground">Alimentação e equipamento do quadro</text>
+    <path d="M90 50V92" stroke="currentColor" strokeWidth={2} /><text x={105} y={65} fontSize={11} className="fill-foreground">REDE</text>
+    {e.ats ? <>
+      <ElectricalSymbol kind="generator" x={230} y={70} />
+      <text x={252} y={66} fontSize={11} className="fill-warning">GERADOR · {e.ats.genKVA} kVA</text>
+      <text x={252} y={81} fontSize={9} className="fill-muted-foreground">Icc ≈ {generatorIcc(e.ats.genKVA).icc.toFixed(0)} A</text>
+      <path d="M90 92V108H146 M230 92V108H174" stroke="currentColor" fill="none" strokeWidth={2} />
+      <ElectricalSymbol kind="ats" x={160} y={130} />
+      <path d="M160 152V168H90V178" stroke="currentColor" fill="none" strokeWidth={2} />
+      <text x={190} y={130} fontSize={10} className="fill-foreground">{e.ats.mode === "Auto" ? "ATS automático" : "Inversor I-0-II"}</text>
+      <text x={190} y={145} fontSize={9} className="fill-muted-foreground">Encravamento</text>
+    </> : <path d="M90 92V178" stroke="currentColor" strokeWidth={2} />}
+    <ElectricalSymbol kind={mainLabel.startsWith("Interruptor") ? "switch" : "breaker"} x={90} y={200} />
+    <text x={115} y={190} fontSize={10} className="fill-brand-green">CORTE GERAL</text>
+    <text x={115} y={205} fontSize={9} className="fill-muted-foreground">{mainLabel}</text>
+    {e.mxFitted && <g className="text-destructive"><path d="M77 200H35V240H68" stroke="currentColor" fill="none" strokeDasharray="4 3" /><ElectricalSymbol kind="coil" x={90} y={240} /><text x={120} y={245} fontSize={10} fill="currentColor">MX · C1/C2</text></g>}
+    <path d={`M90 222V290 M30 290H${W - 30}`} stroke="currentColor" strokeWidth={2} fill="none" />
+    {e.ups && <g className="text-brand-blue">
+      <path d={`M${W - 300} 290V93 M${W - 300} 137V250H${W - 200}`} stroke="currentColor" fill="none" strokeWidth={2} />
+      <ElectricalSymbol kind="ups" x={W - 300} y={115} />
+      <text x={W - 278} y={111} fontSize={11} fill="currentColor">UPS · {e.ups.kVA} kVA</text>
+      <text x={W - 278} y={127} fontSize={9} className="fill-muted-foreground">{e.ups.autonomyMin} min</text>
+      {e.ups.bypass && <><path d={`M${W - 300} 165H${W - 350}V137 M${W - 350} 93V70H${W - 200}V250`} stroke="currentColor" fill="none" /><ElectricalSymbol kind="switch" x={W - 350} y={115} /><text x={W - 383} y={62} fontSize={9} className="fill-muted-foreground">Bypass</text></>}
+    </g>}
+    {e.spd && <g className="text-brand-blue">
+      <path d={`M${W - 65} 290V308 M${W - 65} 352V358`} stroke="currentColor" fill="none" />
+      <ElectricalSymbol kind="spd" x={W - 65} y={330} /><ElectricalSymbol kind="earth" x={W - 65} y={380} />
+      <text x={W - 88} y={405} textAnchor="end" fontSize={10} fill="currentColor">DST {e.spd.type} · {e.spd.poles}P · {e.spd.iKA} kA</text>
+      <text x={W - 88} y={419} textAnchor="end" fontSize={9} className="fill-muted-foreground">Proteção a montante {e.spd.backupA} A · PE</text>
+    </g>}
+    {buses.map((b, i) => {
+      const x = 100 + i * 180;
+      return <g key={b.id} className={b.kind === "UPS" ? "text-destructive" : b.kind === "Socorro" ? "text-warning" : "text-brand-blue"}>
+        <path d={b.kind === "UPS" && e.ups ? `M${W - 200} 250V275H${x}V284 M${x} 296V330 M${x - 8} 296Q${x} 280 ${x + 8} 296 M${x - 55} 330H${x + 55}` : `M${x} 290V330 M${x - 55} 330H${x + 55}`} stroke="currentColor" fill="none" strokeWidth={3} />
+        <text x={x} y={350} fontSize={9} textAnchor="middle" fill="currentColor" fontWeight={700}>{b.name.slice(0, 26)}</text>
+        <text x={x} y={366} fontSize={9} textAnchor="middle" className="fill-muted-foreground">{b.circuitIds.length} circuitos</text>
+      </g>;
+    })}
+  </svg>;
 }
 
 /* ---------------- Frontal DIN ---------------- */
